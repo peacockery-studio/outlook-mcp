@@ -8,17 +8,17 @@
  * @returns {string} - The escaped string
  */
 function escapeODataString(str) {
-  if (!str) return str;
-  
-  // Replace single quotes with double single quotes (OData escaping)
-  // And remove any special characters that could cause OData syntax errors
-  str = str.replace(/'/g, "''");
-  
-  // Escape other potentially problematic characters
-  str = str.replace(/[\(\)\{\}\[\]\:\;\,\/\?\&\=\+\*\%\$\#\@\!\^]/g, '');
-  
-  console.error(`Escaped OData string: '${str}'`);
-  return str;
+	if (!str) return str;
+
+	// Replace single quotes with double single quotes (OData escaping)
+	// And remove any special characters that could cause OData syntax errors
+	str = str.replace(/'/g, "''");
+
+	// Escape other potentially problematic characters
+	str = str.replace(/[(){}[\]:;,/?&=+*%$#@!^]/g, "");
+
+	console.error(`Escaped OData string: '${str}'`);
+	return str;
 }
 
 /**
@@ -27,14 +27,14 @@ function escapeODataString(str) {
  * @returns {string} - Combined OData filter expression
  */
 function buildODataFilter(conditions) {
-  if (!conditions || conditions.length === 0) {
-    return '';
-  }
-  
-  return conditions.join(' and ');
+	if (!conditions || conditions.length === 0) {
+		return "";
+	}
+
+	return conditions.join(" and ");
 }
 
 module.exports = {
-  escapeODataString,
-  buildODataFilter
+	escapeODataString,
+	buildODataFilter,
 };

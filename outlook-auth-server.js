@@ -1,48 +1,53 @@
 #!/usr/bin/env node
-const http = require('http');
-const url = require('url');
-const querystring = require('querystring');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+const http = require("http");
+const url = require("url");
+const querystring = require("querystring");
+const https = require("https");
+const fs = require("fs");
+const path = require("path");
 
 // Load environment variables from .env file
-require('dotenv').config();
+require("dotenv").config();
 
 // Log to console
-console.log('Starting Outlook Authentication Server');
+console.log("Starting Outlook Authentication Server");
 
 // Authentication configuration
 const AUTH_CONFIG = {
-  clientId: process.env.MS_CLIENT_ID || '', // Set your client ID as an environment variable
-  clientSecret: process.env.MS_CLIENT_SECRET || '', // Set your client secret as an environment variable
-  redirectUri: 'http://localhost:3333/auth/callback',
-  scopes: [
-    'offline_access',
-    'User.Read',
-    'Mail.Read',
-    'Mail.Send',
-    'Calendars.Read',
-    'Calendars.ReadWrite',
-    'Contacts.Read'
-  ],
-  tokenStorePath: path.join(process.env.HOME || process.env.USERPROFILE, '.outlook-mcp-tokens.json')
+	clientId: process.env.MS_CLIENT_ID || "", // Set your client ID as an environment variable
+	clientSecret: process.env.MS_CLIENT_SECRET || "", // Set your client secret as an environment variable
+	redirectUri: "http://localhost:3333/auth/callback",
+	scopes: [
+		"offline_access",
+		"User.Read",
+		"Mail.Read",
+		"Mail.Send",
+		"Calendars.Read",
+		"Calendars.ReadWrite",
+		"Contacts.Read",
+	],
+	tokenStorePath: path.join(
+		process.env.HOME || process.env.USERPROFILE,
+		".outlook-mcp-tokens.json",
+	),
 };
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
-  
-  console.log(`Request received: ${pathname}`);
-  
-  if (pathname === '/auth/callback') {
-    const query = parsedUrl.query;
-    
-    if (query.error) {
-      console.error(`Authentication error: ${query.error} - ${query.error_description}`);
-      res.writeHead(400, { 'Content-Type': 'text/html' });
-      res.end(`
+	const parsedUrl = url.parse(req.url, true);
+	const pathname = parsedUrl.pathname;
+
+	console.log(`Request received: ${pathname}`);
+
+	if (pathname === "/auth/callback") {
+		const query = parsedUrl.query;
+
+		if (query.error) {
+			console.error(
+				`Authentication error: ${query.error} - ${query.error_description}`,
+			);
+			res.writeHead(400, { "Content-Type": "text/html" });
+			res.end(`
         <html>
           <head>
             <title>Authentication Error</title>
@@ -56,24 +61,24 @@ const server = http.createServer((req, res) => {
             <h1>Authentication Error</h1>
             <div class="error-box">
               <p><strong>Error:</strong> ${query.error}</p>
-              <p><strong>Description:</strong> ${query.error_description || 'No description provided'}</p>
+              <p><strong>Description:</strong> ${query.error_description || "No description provided"}</p>
             </div>
             <p>Please close this window and try again.</p>
           </body>
         </html>
       `);
-      return;
-    }
-    
-    if (query.code) {
-      console.log('Authorization code received, exchanging for tokens...');
-      
-      // Exchange code for tokens
-      exchangeCodeForTokens(query.code)
-        .then((tokens) => {
-          console.log('Token exchange successful');
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(`
+			return;
+		}
+
+		if (query.code) {
+			console.log("Authorization code received, exchanging for tokens...");
+
+			// Exchange code for tokens
+			exchangeCodeForTokens(query.code)
+				.then((tokens) => {
+					console.log("Token exchange successful");
+					res.writeHead(200, { "Content-Type": "text/html" });
+					res.end(`
             <html>
               <head>
                 <title>Authentication Successful</title>
@@ -93,11 +98,11 @@ const server = http.createServer((req, res) => {
               </body>
             </html>
           `);
-        })
-        .catch((error) => {
-          console.error(`Token exchange error: ${error.message}`);
-          res.writeHead(500, { 'Content-Type': 'text/html' });
-          res.end(`
+				})
+				.catch((error) => {
+					console.error(`Token exchange error: ${error.message}`);
+					res.writeHead(500, { "Content-Type": "text/html" });
+					res.end(`
             <html>
               <head>
                 <title>Token Exchange Error</title>
@@ -116,11 +121,11 @@ const server = http.createServer((req, res) => {
               </body>
             </html>
           `);
-        });
-    } else {
-      console.error('No authorization code provided');
-      res.writeHead(400, { 'Content-Type': 'text/html' });
-      res.end(`
+				});
+		} else {
+			console.error("No authorization code provided");
+			res.writeHead(400, { "Content-Type": "text/html" });
+			res.end(`
         <html>
           <head>
             <title>Missing Authorization Code</title>
@@ -139,15 +144,15 @@ const server = http.createServer((req, res) => {
           </body>
         </html>
       `);
-    }
-  } else if (pathname === '/auth') {
-    // Handle the /auth route - redirect to Microsoft's OAuth authorization endpoint
-    console.log('Auth request received, redirecting to Microsoft login...');
-    
-    // Verify credentials are set
-    if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
-      res.writeHead(500, { 'Content-Type': 'text/html' });
-      res.end(`
+		}
+	} else if (pathname === "/auth") {
+		// Handle the /auth route - redirect to Microsoft's OAuth authorization endpoint
+		console.log("Auth request received, redirecting to Microsoft login...");
+
+		// Verify credentials are set
+		if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
+			res.writeHead(500, { "Content-Type": "text/html" });
+			res.end(`
         <html>
           <head>
             <title>Configuration Error</title>
@@ -170,33 +175,33 @@ const server = http.createServer((req, res) => {
           </body>
         </html>
       `);
-      return;
-    }
-    
-    // Get client_id from query parameters or use the default
-    const query = parsedUrl.query;
-    const clientId = query.client_id || AUTH_CONFIG.clientId;
-    
-    // Build the authorization URL
-    const authParams = {
-      client_id: clientId,
-      response_type: 'code',
-      redirect_uri: AUTH_CONFIG.redirectUri,
-      scope: AUTH_CONFIG.scopes.join(' '),
-      response_mode: 'query',
-      state: Date.now().toString() // Simple state parameter for security
-    };
-    
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${querystring.stringify(authParams)}`;
-    console.log(`Redirecting to: ${authUrl}`);
-    
-    // Redirect to Microsoft's login page
-    res.writeHead(302, { 'Location': authUrl });
-    res.end();
-  } else if (pathname === '/') {
-    // Root path - provide instructions
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(`
+			return;
+		}
+
+		// Get client_id from query parameters or use the default
+		const query = parsedUrl.query;
+		const clientId = query.client_id || AUTH_CONFIG.clientId;
+
+		// Build the authorization URL
+		const authParams = {
+			client_id: clientId,
+			response_type: "code",
+			redirect_uri: AUTH_CONFIG.redirectUri,
+			scope: AUTH_CONFIG.scopes.join(" "),
+			response_mode: "query",
+			state: Date.now().toString(), // Simple state parameter for security
+		};
+
+		const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${querystring.stringify(authParams)}`;
+		console.log(`Redirecting to: ${authUrl}`);
+
+		// Redirect to Microsoft's login page
+		res.writeHead(302, { Location: authUrl });
+		res.end();
+	} else if (pathname === "/") {
+		// Root path - provide instructions
+		res.writeHead(200, { "Content-Type": "text/html" });
+		res.end(`
       <html>
         <head>
           <title>Outlook Authentication Server</title>
@@ -218,95 +223,107 @@ const server = http.createServer((req, res) => {
         </body>
       </html>
     `);
-  } else {
-    // Not found
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
-  }
+	} else {
+		// Not found
+		res.writeHead(404, { "Content-Type": "text/plain" });
+		res.end("Not Found");
+	}
 });
 
 function exchangeCodeForTokens(code) {
-  return new Promise((resolve, reject) => {
-    const postData = querystring.stringify({
-      client_id: AUTH_CONFIG.clientId,
-      client_secret: AUTH_CONFIG.clientSecret,
-      code: code,
-      redirect_uri: AUTH_CONFIG.redirectUri,
-      grant_type: 'authorization_code',
-      scope: AUTH_CONFIG.scopes.join(' ')
-    });
-    
-    const options = {
-      hostname: 'login.microsoftonline.com',
-      path: '/common/oauth2/v2.0/token',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-    
-    const req = https.request(options, (res) => {
-      let data = '';
-      
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            const tokenResponse = JSON.parse(data);
-            
-            // Calculate expiration time (current time + expires_in seconds)
-            const expiresAt = Date.now() + (tokenResponse.expires_in * 1000);
-            
-            // Add expires_at for easier expiration checking
-            tokenResponse.expires_at = expiresAt;
-            
-            // Save tokens to file
-            fs.writeFileSync(AUTH_CONFIG.tokenStorePath, JSON.stringify(tokenResponse, null, 2), 'utf8');
-            console.log(`Tokens saved to ${AUTH_CONFIG.tokenStorePath}`);
-            
-            resolve(tokenResponse);
-          } catch (error) {
-            reject(new Error(`Error parsing token response: ${error.message}`));
-          }
-        } else {
-          reject(new Error(`Token exchange failed with status ${res.statusCode}: ${data}`));
-        }
-      });
-    });
-    
-    req.on('error', (error) => {
-      reject(error);
-    });
-    
-    req.write(postData);
-    req.end();
-  });
+	return new Promise((resolve, reject) => {
+		const postData = querystring.stringify({
+			client_id: AUTH_CONFIG.clientId,
+			client_secret: AUTH_CONFIG.clientSecret,
+			code: code,
+			redirect_uri: AUTH_CONFIG.redirectUri,
+			grant_type: "authorization_code",
+			scope: AUTH_CONFIG.scopes.join(" "),
+		});
+
+		const options = {
+			hostname: "login.microsoftonline.com",
+			path: "/common/oauth2/v2.0/token",
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded",
+				"Content-Length": Buffer.byteLength(postData),
+			},
+		};
+
+		const req = https.request(options, (res) => {
+			let data = "";
+
+			res.on("data", (chunk) => {
+				data += chunk;
+			});
+
+			res.on("end", () => {
+				if (res.statusCode >= 200 && res.statusCode < 300) {
+					try {
+						const tokenResponse = JSON.parse(data);
+
+						// Calculate expiration time (current time + expires_in seconds)
+						const expiresAt = Date.now() + tokenResponse.expires_in * 1000;
+
+						// Add expires_at for easier expiration checking
+						tokenResponse.expires_at = expiresAt;
+
+						// Save tokens to file
+						fs.writeFileSync(
+							AUTH_CONFIG.tokenStorePath,
+							JSON.stringify(tokenResponse, null, 2),
+							"utf8",
+						);
+						console.log(`Tokens saved to ${AUTH_CONFIG.tokenStorePath}`);
+
+						resolve(tokenResponse);
+					} catch (error) {
+						reject(new Error(`Error parsing token response: ${error.message}`));
+					}
+				} else {
+					reject(
+						new Error(
+							`Token exchange failed with status ${res.statusCode}: ${data}`,
+						),
+					);
+				}
+			});
+		});
+
+		req.on("error", (error) => {
+			reject(error);
+		});
+
+		req.write(postData);
+		req.end();
+	});
 }
 
 // Start server
 const PORT = 3333;
 server.listen(PORT, () => {
-  console.log(`Authentication server running at http://localhost:${PORT}`);
-  console.log(`Waiting for authentication callback at ${AUTH_CONFIG.redirectUri}`);
-  console.log(`Token will be stored at: ${AUTH_CONFIG.tokenStorePath}`);
-  
-  if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
-    console.log('\n⚠️  WARNING: Microsoft Graph API credentials are not set.');
-    console.log('   Please set the MS_CLIENT_ID and MS_CLIENT_SECRET environment variables.');
-  }
+	console.log(`Authentication server running at http://localhost:${PORT}`);
+	console.log(
+		`Waiting for authentication callback at ${AUTH_CONFIG.redirectUri}`,
+	);
+	console.log(`Token will be stored at: ${AUTH_CONFIG.tokenStorePath}`);
+
+	if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
+		console.log("\n⚠️  WARNING: Microsoft Graph API credentials are not set.");
+		console.log(
+			"   Please set the MS_CLIENT_ID and MS_CLIENT_SECRET environment variables.",
+		);
+	}
 });
 
 // Handle termination
-process.on('SIGINT', () => {
-  console.log('Authentication server shutting down');
-  process.exit(0);
+process.on("SIGINT", () => {
+	console.log("Authentication server shutting down");
+	process.exit(0);
 });
 
-process.on('SIGTERM', () => {
-  console.log('Authentication server shutting down');
-  process.exit(0);
+process.on("SIGTERM", () => {
+	console.log("Authentication server shutting down");
+	process.exit(0);
 });
