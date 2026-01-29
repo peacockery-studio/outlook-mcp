@@ -1,0 +1,150 @@
+/**
+ * Authentication-related tools for the Outlook MCP server
+ */
+import config from "../config.js";
+import tokenManager from "./token-manager.js";
+
+export interface MCPContent {
+	type: string;
+	text: string;
+}
+
+export interface MCPResponse {
+	content: MCPContent[];
+}
+
+export interface AuthenticateArgs {
+	force?: boolean;
+}
+
+export interface ToolDefinition {
+	name: string;
+	description: string;
+	inputSchema: {
+		type: string;
+		properties: Record<string, unknown>;
+		required: string[];
+	};
+	handler: (args: Record<string, unknown>) => Promise<MCPResponse>;
+}
+
+/**
+ * About tool handler
+ */
+export async function handleAbout(): Promise<MCPResponse> {
+	return {
+		content: [
+			{
+				type: "text",
+				text: `MODULAR Outlook Assistant MCP Server v${config.SERVER_VERSION}\n\nProvides access to Microsoft Outlook email, calendar, and contacts through Microsoft Graph API.\nImplemented with a modular architecture for improved maintainability.`,
+			},
+		],
+	};
+}
+
+/**
+ * Authentication tool handler
+ */
+export async function handleAuthenticate(
+	args?: AuthenticateArgs,
+): Promise<MCPResponse> {
+	const _force = args?.force === true;
+
+	if (config.USE_TEST_MODE) {
+		await tokenManager.createTestTokens();
+
+		return {
+			content: [
+				{
+					type: "text",
+					text: "Successfully authenticated with Microsoft Graph API (test mode)",
+				},
+			],
+		};
+	}
+
+	const authUrl = `${config.AUTH_CONFIG.authServerUrl}/auth?client_id=${config.AUTH_CONFIG.clientId}`;
+
+	return {
+		content: [
+			{
+				type: "text",
+				text: `Authentication required. Please visit the following URL to authenticate with Microsoft: ${authUrl}\n\nAfter authentication, you will be redirected back to this application.`,
+			},
+		],
+	};
+}
+
+/**
+ * Check authentication status tool handler
+ */
+export async function handleCheckAuthStatus(): Promise<MCPResponse> {
+	console.error("[CHECK-AUTH-STATUS] Starting authentication status check");
+
+	const tokens = await tokenManager.loadTokenCache();
+
+	console.error(`[CHECK-AUTH-STATUS] Tokens loaded: ${tokens ? "YES" : "NO"}`);
+
+	if (!tokens?.access_token) {
+		console.error("[CHECK-AUTH-STATUS] No valid access token found");
+		return {
+			content: [{ type: "text", text: "Not authenticated" }],
+		};
+	}
+
+	console.error("[CHECK-AUTH-STATUS] Access token present");
+	console.error(`[CHECK-AUTH-STATUS] Token expires at: ${tokens.expires_at}`);
+	console.error(`[CHECK-AUTH-STATUS] Current time: ${Date.now()}`);
+
+	return {
+		content: [{ type: "text", text: "Authenticated and ready" }],
+	};
+}
+
+export const authTools: ToolDefinition[] = [
+	{
+		name: "about",
+		description: "Returns information about this Outlook Assistant server",
+		inputSchema: {
+			type: "object",
+			properties: {},
+			required: [],
+		},
+		handler: handleAbout,
+	},
+	{
+		name: "authenticate",
+		description: "Authenticate with Microsoft Graph API to access Outlook data",
+		inputSchema: {
+			type: "object",
+			properties: {
+				force: {
+					type: "boolean",
+					description: "Force re-authentication even if already authenticated",
+				},
+			},
+			required: [],
+		},
+		handler: handleAuthenticate as (
+			args: Record<string, unknown>,
+		) => Promise<MCPResponse>,
+	},
+	{
+		name: "check-auth-status",
+		description:
+			"Check the current authentication status with Microsoft Graph API",
+		inputSchema: {
+			type: "object",
+			properties: {},
+			required: [],
+		},
+		handler: handleCheckAuthStatus,
+	},
+];
+
+export default {
+	authTools,
+	handleAbout,
+	handleAuthenticate,
+	handleCheckAuthStatus,
+};

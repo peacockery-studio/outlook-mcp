@@ -4,4 +4,4 @@
 echo "Testing modular Outlook MCP server..."
 
 # Use the MCP Inspector to test the server
-npx @modelcontextprotocol/inspector node "/Users/ryaker/Documents/LocalDev/MCP/Projects/OutlookAssistant/modular/index.js"
+bunx @modelcontextprotocol/inspector bun "/Users/chiejimofor/Documents/Github/outlook-mcp/index.ts"

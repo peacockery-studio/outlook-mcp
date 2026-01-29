@@ -7,70 +7,78 @@ Certified by MCPHub https://mcphub.com/mcp-servers/ryaker/outlook-mcp
 
 ## Directory Structure
 
-```
-/modular/
-├── index.js                 # Main entry point
-├── config.js                # Configuration settings
+```sql
+├── index.ts                 # Main entry point
+├── config.ts                # Configuration settings
+├── types.ts                 # Shared TypeScript type definitions
 ├── auth/                    # Authentication modules
-│   ├── index.js             # Authentication exports
-│   ├── token-manager.js     # Token storage and refresh
-│   └── tools.js             # Auth-related tools
+│   ├── index.ts             # Authentication exports
+│   ├── token-manager.ts     # Token storage and refresh
+│   └── tools.ts             # Auth-related tools
 ├── calendar/                # Calendar functionality
-│   ├── index.js             # Calendar exports
-│   ├── list.js              # List events
-│   ├── create.js            # Create event
-│   ├── delete.js            # Delete event
-│   ├── cancel.js            # Cancel
-│   ├── accept.js            # Accept event
-│   ├── tentative.js         # Tentatively accept event
-│   ├── decline.js           # Decline event
+│   ├── index.ts             # Calendar exports
+│   ├── list.ts              # List events
+│   ├── create.ts            # Create event
+│   ├── delete.ts            # Delete event
+│   ├── cancel.ts            # Cancel event
+│   ├── accept.ts            # Accept event
+│   ├── tentative.ts         # Tentatively accept event
+│   └── decline.ts           # Decline event
+├── config/                  # Configuration modules
+│   └── mailbox-permissions.ts  # Mailbox permission restrictions
 ├── email/                   # Email functionality
-│   ├── index.js             # Email exports
-│   ├── list.js              # List emails
-│   ├── search.js            # Search emails
-│   ├── read.js              # Read email
-│   └── send.js              # Send email
+│   ├── index.ts             # Email exports
+│   ├── list.ts              # List emails
+│   ├── search.ts            # Search emails
+│   ├── read.ts              # Read email
+│   ├── send.ts              # Send email
+│   ├── categories.ts        # Email categories management
+│   └── archive-delete.ts    # Archive and delete emails
 └── utils/                   # Utility functions
-    ├── graph-api.js         # Microsoft Graph API helper
-    ├── odata-helpers.js     # OData query building
-    └── mock-data.js         # Test mode data
+    ├── graph-api.ts         # Microsoft Graph API helper
+    ├── odata-helpers.ts     # OData query building
+    └── mock-data.ts         # Test mode data
 ```
 
 ## Features
 
 - **Authentication**: OAuth 2.0 authentication with Microsoft Graph API
 - **Email Management**: List, search, read, and send emails
+- **Categories Management**: Get master categories and set categories on emails
+- **Archive & Delete**: Archive emails to archive folder, permanently delete emails
 - **Calendar Management**: List, create, accept, decline, and delete calendar events
+- **Mailbox Permission Restrictions**: Configurable read-only vs full-access per mailbox
 - **Modular Structure**: Clean separation of concerns for better maintainability
 - **OData Filter Handling**: Proper escaping and formatting of OData queries
 - **Test Mode**: Simulated responses for testing without real API calls
+- **TypeScript**: Fully typed codebase for improved developer experience
 
 ## Quick Start
 
-1. **Install dependencies**: `npm install`
+1. **Install dependencies**: `bun install`
 2. **Azure setup**: Register app in Azure Portal (see detailed steps below)
 3. **Configure environment**: Copy `.env.example` to `.env` and add your Azure credentials
 4. **Configure Claude**: Update your Claude Desktop config with the server path
-5. **Start auth server**: `npm run auth-server` 
+5. **Start auth server**: `bun run auth-server`
 6. **Authenticate**: Use the authenticate tool in Claude to get the OAuth URL
 7. **Start using**: Access your Outlook data through Claude!
 
 ## Installation
 
 ### Prerequisites
-- Node.js 14.0.0 or higher
-- npm or yarn package manager
+- Bun runtime (https://bun.sh) - fast JavaScript/TypeScript runtime
 - Azure account for app registration
 
 ### Install Dependencies
 
 ```bash
-npm install
+bun install
 ```
 
 This will install the required dependencies including:
 - `@modelcontextprotocol/sdk` - MCP protocol implementation
-- `dotenv` - Environment variable management
+
+**Note**: Bun natively supports TypeScript and auto-loads `.env` files, so no additional configuration is needed.
 
 ## Azure App Registration & Configuration
 
@@ -137,6 +145,7 @@ USE_TEST_MODE=false
 - Use `MS_CLIENT_ID` and `MS_CLIENT_SECRET` in the `.env` file
 - For Claude Desktop config, you'll use `OUTLOOK_CLIENT_ID` and `OUTLOOK_CLIENT_SECRET`
 - Always use the client secret **VALUE**, never the Secret ID
+- Bun auto-loads `.env` files, so no additional configuration is needed
 
 ### 2. Claude Desktop Configuration
 
@@ -146,9 +155,9 @@ Copy the configuration from `claude-config-sample.json` to your Claude Desktop c
 {
   "mcpServers": {
     "outlook-assistant": {
-      "command": "node",
+      "command": "bun",
       "args": [
-        "/absolute/path/to/outlook-mcp/index.js"
+        "/absolute/path/to/outlook-mcp/index.ts"
       ],
       "env": {
         "USE_TEST_MODE": "false",
@@ -162,7 +171,7 @@ Copy the configuration from `claude-config-sample.json` to your Claude Desktop c
 
 ### 3. Advanced Configuration (Optional)
 
-To configure server behavior, you can edit `config.js` to change:
+To configure server behavior, you can edit `config.ts` to change:
 
 - Server name and version
 - Test mode settings
@@ -174,7 +183,7 @@ To configure server behavior, you can edit `config.js` to change:
 
 1. **Configure Claude Desktop**: Add the server configuration (see Configuration section above)
 2. **Restart Claude Desktop**: Close and reopen Claude Desktop to load the new MCP server
-3. **Start Authentication Server**: Open a terminal and run `npm run auth-server`
+3. **Start Authentication Server**: Open a terminal and run `bun run auth-server`
 4. **Authenticate**: In Claude Desktop, use the `authenticate` tool to get an OAuth URL
 5. **Complete OAuth Flow**: Visit the URL in your browser and sign in with Microsoft
 6. **Start Using**: Once authenticated, you can use all the Outlook tools in Claude!
@@ -195,7 +204,7 @@ The authentication process requires two steps:
 
 ### Step 1: Start the Authentication Server
 ```bash
-npm run auth-server
+bun run auth-server
 ```
 This starts a local server on port 3333 that handles the OAuth callback from Microsoft.
 
@@ -219,15 +228,15 @@ The authentication server can be stopped after successful authentication (tokens
 #### "Cannot find module '@modelcontextprotocol/sdk/server/index.js'"
 **Solution**: Install dependencies first:
 ```bash
-npm install
+bun install
 ```
 
 #### "Error: listen EADDRINUSE: address already in use :::3333"
 **Solution**: Port 3333 is already in use. Kill the existing process:
 ```bash
-npx kill-port 3333
+bunx kill-port 3333
 ```
-Then restart the auth server: `npm run auth-server`
+Then restart the auth server: `bun run auth-server`
 
 ### Authentication Issues
 
@@ -240,13 +249,13 @@ Then restart the auth server: `npm run auth-server`
 3. Update both:
    - `.env` file: `MS_CLIENT_SECRET=actual-secret-value`
    - Claude Desktop config: `OUTLOOK_CLIENT_SECRET=actual-secret-value`
-4. Restart the auth server: `npm run auth-server`
+4. Restart the auth server: `bun run auth-server`
 
 #### Authentication URL doesn't work / "This site can't be reached"
 **Root Cause**: Authentication server isn't running.
 
 **Solution**:
-1. Start the auth server first: `npm run auth-server`
+1. Start the auth server first: `bun run auth-server`
 2. Wait for "Authentication server running at http://localhost:3333"
 3. Then try the authentication URL in Claude
 
@@ -281,15 +290,31 @@ Then restart the auth server: `npm run auth-server`
 ### Getting Help
 
 If you're still having issues:
-1. Check the console output from `npm run auth-server` for detailed error messages
+1. Check the console output from `bun run auth-server` for detailed error messages
 2. Verify your Azure app registration settings match the documentation
 3. Ensure you have the required Microsoft Graph API permissions
+
+## Mailbox Permissions
+
+The server includes configurable mailbox permission restrictions to prevent accidental modifications on certain mailboxes.
+
+### Full Access Mailboxes
+The following mailboxes have full access (send, modify, delete, archive):
+- contracts@
+- chi@
+- dustpermits@
+
+### Read-Only Mailboxes
+All other mailboxes are restricted to read-only access. Attempting to send emails, delete, or archive from these mailboxes will be blocked with an error message.
+
+Permissions are configured in `config/mailbox-permissions.ts`. You can modify the `FULL_ACCESS_MAILBOXES` array to customize which mailboxes have full access.
 
 ## Extending the Server
 
 To add more functionality:
 
-1. Create new module directories (e.g., `calendar/`)
-2. Implement tool handlers in separate files
-3. Export tool definitions from module index files
-4. Import and add tools to `TOOLS` array in `index.js`
+1. Create new module directories (e.g., `contacts/`)
+2. Implement tool handlers in separate `.ts` files with proper TypeScript types
+3. Export tool definitions from module `index.ts` files
+4. Import and add tools to `TOOLS` array in `index.ts`
+5. Add any shared types to `types.ts` at the project root

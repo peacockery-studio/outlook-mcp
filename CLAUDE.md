@@ -4,24 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- `npm install` - **ALWAYS run first** to install dependencies 
-- `npm start` - Start the MCP server
-- `npm run auth-server` - Start the OAuth authentication server on port 3333 (**required for authentication**)
-- `npm run test-mode` - Start the server in test mode with mock data
-- `npm run inspect` - Use MCP Inspector to test the server interactively
-- `npm test` - Run Jest tests
+- `bun install` - **ALWAYS run first** to install dependencies
+- `bun run start` - Start the MCP server
+- `bun run auth-server` - Start the OAuth authentication server on port 3333 (**required for authentication**)
+- `bun run test-mode` - Start the server in test mode with mock data
+- `bun run inspect` - Use MCP Inspector to test the server interactively
+- `bun run typecheck` - Run TypeScript type checking
+- `bun test` - Run Jest tests
 - `./test-modular-server.sh` - Test the server using MCP Inspector
 - `./test-direct.sh` - Direct testing script
-- `npx kill-port 3333` - Kill process using port 3333 if auth server won't start
+- `bunx kill-port 3333` - Kill process using port 3333 if auth server won't start
 
 ## Architecture Overview
 
 This is a modular MCP (Model Context Protocol) server that provides Claude with access to Microsoft Outlook via the Microsoft Graph API. The architecture is organized into functional modules:
 
 ### Core Structure
-- `index.js` - Main entry point that combines all module tools and handles MCP protocol
-- `config.js` - Centralized configuration including API endpoints, field selections, and authentication settings
-- `outlook-auth-server.js` - Standalone OAuth server for authentication flow
+- `index.ts` - Main entry point that combines all module tools and handles MCP protocol
+- `config.ts` - Centralized configuration including API endpoints, field selections, and authentication settings
+- `outlook-auth-server.ts` - Standalone OAuth server for authentication flow
+- `types.ts` - Shared TypeScript type definitions
 
 ### Modules
 Each module exports tools and handlers:
@@ -34,14 +36,68 @@ Each module exports tools and handlers:
 
 ### Key Components
 - **Token Management**: Tokens stored in `~/.outlook-mcp-tokens.json`
-- **Graph API Client**: `utils/graph-api.js` handles all Microsoft Graph API calls with proper OData encoding
+- **Graph API Client**: `utils/graph-api.ts` handles all Microsoft Graph API calls with proper OData encoding
 - **Test Mode**: Mock data responses when `USE_TEST_MODE=true`
 - **Modular Tools**: Each module exports tools array that gets combined in main server
+
+## Type Safety
+
+The codebase is fully written in TypeScript for improved type safety and developer experience.
+
+- Run `bun run typecheck` to check types across the entire codebase
+- Shared types are defined in `types.ts` at the project root
+- All modules use strict TypeScript with explicit type annotations
+
+## Available Tools
+
+### Auth
+- `authenticate` - Initiate OAuth authentication flow
+- `get-auth-status` - Check current authentication status
+
+### Email
+- `list-emails` - List emails from inbox or specified folder
+- `search-emails` - Search emails with various filters
+- `read-email` - Read a specific email by ID
+- `send-email` - Send a new email
+- `mark-as-read` - Mark an email as read/unread
+- `get-master-categories` - Get available email categories
+- `set-email-categories` - Set categories on an email
+- `archive-email` - Archive an email
+- `delete-email` - Delete an email
+
+### Folder
+- `list-folders` - List all mail folders
+- `create-folder` - Create a new mail folder
+- `move-emails` - Move emails to a different folder
+
+### Rules
+- `list-rules` - List all inbox rules
+- `create-rule` - Create a new inbox rule
+- `edit-rule-sequence` - Edit the sequence/priority of rules
+
+### Calendar
+- `list-events` - List calendar events
+- `create-event` - Create a new calendar event
+- `decline-event` - Decline a calendar event invitation
+- `cancel-event` - Cancel a calendar event (organizer only)
+- `delete-event` - Delete a calendar event
+
+## Mailbox Permissions
+
+Some operations are restricted by mailbox to prevent accidental modifications:
+
+### Full Access (Send, Modify, Delete, Archive)
+- contracts@
+- chi@
+- dustpermits@
+
+### Read-Only Access
+All other mailboxes have read-only access. Attempting to send, delete, or archive from these mailboxes will be blocked.
 
 ## Authentication Flow
 
 1. Azure app registration required with specific permissions (Mail.Read, Mail.Send, Calendars.ReadWrite, etc.)
-2. Start auth server: `npm run auth-server` 
+2. Start auth server: `bun run auth-server`
 3. Use authenticate tool to get OAuth URL
 4. Complete browser authentication
 5. Tokens automatically stored and refreshed
@@ -55,16 +111,17 @@ Each module exports tools and handlers:
 - Copy `.env.example` to `.env` and populate with real Azure credentials
 - Default timezone is "Central European Standard Time"
 - Default page size is 25, max results 50
+- **Note**: Bun auto-loads `.env` files, so no dotenv package is needed
 
 ### Common Setup Issues
-1. **Missing dependencies**: Always run `npm install` first
+1. **Missing dependencies**: Always run `bun install` first
 2. **Wrong secret**: Use Azure secret VALUE, not ID (AADSTS7000215 error)
-3. **Auth server not running**: Start `npm run auth-server` before authenticating
-4. **Port conflicts**: Use `npx kill-port 3333` if port is in use
+3. **Auth server not running**: Start `bun run auth-server` before authenticating
+4. **Port conflicts**: Use `bunx kill-port 3333` if port is in use
 
 ## Test Mode
 
-Set `USE_TEST_MODE=true` to use mock data instead of real API calls. Mock responses are defined in `utils/mock-data.js`.
+Set `USE_TEST_MODE=true` to use mock data instead of real API calls. Mock responses are defined in `utils/mock-data.ts`.
 
 ## OData Query Handling
 

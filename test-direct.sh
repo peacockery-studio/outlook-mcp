@@ -2,7 +2,7 @@
 # Test the modular Outlook MCP server directly
 
 # Run the server in a background process
-node /Users/ryaker/Documents/LocalDev/MCP/Projects/OutlookAssistant/modular/index.js > /dev/null 2>&1 &
+bun /Users/chiejimofor/Documents/Github/outlook-mcp/index.ts > /dev/null 2>&1 &
 SERVER_PID=$!
 
 echo "Started modular Outlook MCP server with PID: $SERVER_PID"
