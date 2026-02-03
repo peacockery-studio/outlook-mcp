@@ -26,19 +26,13 @@ export const MAX_RESULT_COUNT = 50;
 export const DEFAULT_TIMEZONE = "Central European Standard Time";
 
 export const AUTH_CONFIG = {
-	clientId: process.env.OUTLOOK_CLIENT_ID ?? "",
-	clientSecret: process.env.OUTLOOK_CLIENT_SECRET ?? "",
-	redirectUri: "http://localhost:3333/auth/callback",
-	scopes: [
-		"Mail.Read",
-		"Mail.ReadWrite",
-		"Mail.Send",
-		"User.Read",
-		"Calendars.Read",
-		"Calendars.ReadWrite",
-	],
+	tenantId: process.env.MS_TENANT_ID ?? process.env.OUTLOOK_TENANT_ID ?? "",
+	clientId: process.env.MS_CLIENT_ID ?? process.env.OUTLOOK_CLIENT_ID ?? "",
+	clientSecret:
+		process.env.MS_CLIENT_SECRET ?? process.env.OUTLOOK_CLIENT_SECRET ?? "",
+	// App-only auth uses .default scope for client credentials
+	scopes: ["https://graph.microsoft.com/.default"],
 	tokenStorePath: path.join(homeDir, ".outlook-mcp-tokens.json"),
-	authServerUrl: "http://localhost:3333",
 };
 
 const config: Config = {

@@ -3,6 +3,11 @@
  */
 
 import { ensureAuthenticated } from "../auth";
+import {
+	canModifyMailbox,
+	formatAllowedMailboxes,
+	getCurrentUserEmail,
+} from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 
 /**
@@ -53,6 +58,19 @@ export async function handleMarkAsRead(
 	try {
 		// Get access token
 		const accessToken = await ensureAuthenticated();
+
+		// Check if the current mailbox has permission to modify
+		const currentUserEmail = await getCurrentUserEmail(accessToken);
+		if (!canModifyMailbox(currentUserEmail)) {
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Modifying emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+					},
+				],
+			};
+		}
 
 		// Make API call to update email read status
 		const endpoint = `me/messages/${encodeURIComponent(emailId)}`;

@@ -4,6 +4,11 @@
 
 import { ensureAuthenticated } from "../auth/index.js";
 import type { MCPResponse } from "../auth/tools.js";
+import {
+	canModifyMailbox,
+	formatAllowedMailboxes,
+	getCurrentUserEmail,
+} from "../config/mailbox-permissions.js";
 import { getFolderIdByName } from "../email/folder-utils.js";
 import { callGraphAPI } from "../utils/graph-api.js";
 
@@ -40,6 +45,20 @@ export async function handleCreateFolder(
 
 	try {
 		const accessToken = await ensureAuthenticated();
+
+		// Check if the current mailbox has permission to modify
+		const currentUserEmail = await getCurrentUserEmail(accessToken);
+		if (!canModifyMailbox(currentUserEmail)) {
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Creating folders is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+					},
+				],
+			};
+		}
+
 		const result = await createMailFolder(
 			accessToken,
 			folderName,

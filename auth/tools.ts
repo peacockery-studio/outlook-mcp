@@ -43,7 +43,7 @@ export async function handleAbout(): Promise<MCPResponse> {
 }
 
 /**
- * Authentication tool handler
+ * Authentication tool handler - verifies app credentials work
  */
 export async function handleAuthenticate(
 	args?: AuthenticateArgs,
@@ -52,7 +52,6 @@ export async function handleAuthenticate(
 
 	if (config.USE_TEST_MODE) {
 		await tokenManager.createTestTokens();
-
 		return {
 			content: [
 				{
@@ -63,16 +62,36 @@ export async function handleAuthenticate(
 		};
 	}
 
-	const authUrl = `${config.AUTH_CONFIG.authServerUrl}/auth?client_id=${config.AUTH_CONFIG.clientId}`;
-
-	return {
-		content: [
-			{
-				type: "text",
-				text: `Authentication required. Please visit the following URL to authenticate with Microsoft: ${authUrl}\n\nAfter authentication, you will be redirected back to this application.`,
-			},
-		],
-	};
+	try {
+		const token = await tokenManager.getAccessToken();
+		if (token) {
+			return {
+				content: [
+					{
+						type: "text",
+						text: "Successfully authenticated with Microsoft Graph API using app credentials",
+					},
+				],
+			};
+		}
+		return {
+			content: [
+				{
+					type: "text",
+					text: "Authentication failed. Check MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET in .env",
+				},
+			],
+		};
+	} catch (error) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Authentication failed: ${error instanceof Error ? error.message : String(error)}`,
+				},
+			],
+		};
+	}
 }
 
 /**

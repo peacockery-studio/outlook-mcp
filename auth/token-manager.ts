@@ -1,126 +1,104 @@
 /**
- * Token management for Microsoft Graph API authentication
+ * Token management using client credentials flow (app-only auth)
+ * No user interaction required - uses tenant/client/secret from .env
  */
 import config from "../config.js";
 
-export interface TokenData {
+interface TokenResponse {
 	access_token: string;
-	refresh_token?: string;
-	expires_at?: number;
+	token_type: string;
+	expires_in: number;
 }
 
-let cachedTokens: TokenData | null = null;
+interface CachedToken {
+	access_token: string;
+	expires_at: number;
+}
+
+let cachedToken: CachedToken | null = null;
 
 /**
- * Loads authentication tokens from the token file
+ * Fetches a new access token using client credentials flow
  */
-export async function loadTokenCache(): Promise<TokenData | null> {
-	try {
-		const tokenPath = config.AUTH_CONFIG.tokenStorePath;
-		console.error(`[DEBUG] Attempting to load tokens from: ${tokenPath}`);
-		console.error(`[DEBUG] HOME directory: ${process.env.HOME}`);
-		console.error(`[DEBUG] Full resolved path: ${tokenPath}`);
+async function fetchAccessToken(): Promise<CachedToken> {
+	const { tenantId, clientId, clientSecret, scopes } = config.AUTH_CONFIG;
 
-		const file = Bun.file(tokenPath);
-		if (!(await file.exists())) {
-			console.error("[DEBUG] Token file does not exist");
-			return null;
-		}
-
-		const stats = await file.stat();
-		console.error(`[DEBUG] Token file stats:
-      Size: ${file.size} bytes
-      Created: ${stats?.birthtime}
-      Modified: ${stats?.mtime}`);
-
-		const tokenData = await file.text();
-		console.error("[DEBUG] Token file contents length:", tokenData.length);
-		console.error(
-			"[DEBUG] Token file first 200 characters:",
-			tokenData.slice(0, 200),
+	if (!tenantId || !clientId || !clientSecret) {
+		throw new Error(
+			"Missing credentials. Set MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET in .env",
 		);
-
-		try {
-			const tokens = JSON.parse(tokenData) as TokenData;
-			console.error("[DEBUG] Parsed tokens keys:", Object.keys(tokens));
-
-			for (const key of Object.keys(tokens)) {
-				console.error(
-					`[DEBUG] ${key}: ${typeof tokens[key as keyof TokenData]}`,
-				);
-			}
-
-			if (!tokens.access_token) {
-				console.error("[DEBUG] No access_token found in tokens");
-				return null;
-			}
-
-			const now = Date.now();
-			const expiresAt = tokens.expires_at || 0;
-
-			console.error(`[DEBUG] Current time: ${now}`);
-			console.error(`[DEBUG] Token expires at: ${expiresAt}`);
-
-			if (now > expiresAt) {
-				console.error("[DEBUG] Token has expired");
-				return null;
-			}
-
-			cachedTokens = tokens;
-			return tokens;
-		} catch (parseError) {
-			console.error("[DEBUG] Error parsing token JSON:", parseError);
-			return null;
-		}
-	} catch (error) {
-		console.error("[DEBUG] Error loading token cache:", error);
-		return null;
-	}
-}
-
-/**
- * Saves authentication tokens to the token file
- */
-export async function saveTokenCache(tokens: TokenData): Promise<boolean> {
-	try {
-		const tokenPath = config.AUTH_CONFIG.tokenStorePath;
-		console.error(`Saving tokens to: ${tokenPath}`);
-
-		await Bun.write(tokenPath, JSON.stringify(tokens, null, 2));
-		console.error("Tokens saved successfully");
-
-		cachedTokens = tokens;
-		return true;
-	} catch (error) {
-		console.error("Error saving token cache:", error);
-		return false;
-	}
-}
-
-/**
- * Gets the current access token, loading from cache if necessary
- */
-export async function getAccessToken(): Promise<string | null> {
-	if (cachedTokens?.access_token) {
-		return cachedTokens.access_token;
 	}
 
-	const tokens = await loadTokenCache();
-	return tokens?.access_token ?? null;
-}
+	const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
 
-/**
- * Creates a test access token for use in test mode
- */
-export async function createTestTokens(): Promise<TokenData> {
-	const testTokens: TokenData = {
-		access_token: `test_access_token_${Date.now()}`,
-		refresh_token: `test_refresh_token_${Date.now()}`,
-		expires_at: Date.now() + 3600 * 1000,
+	const response = await fetch(tokenUrl, {
+		method: "POST",
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		body: new URLSearchParams({
+			client_id: clientId,
+			client_secret: clientSecret,
+			scope: scopes.join(" "),
+			grant_type: "client_credentials",
+		}),
+	});
+
+	if (!response.ok) {
+		const error = await response.text();
+		throw new Error(`Failed to get token: ${response.status} ${error}`);
+	}
+
+	const data = (await response.json()) as TokenResponse;
+
+	cachedToken = {
+		access_token: data.access_token,
+		expires_at: Date.now() + data.expires_in * 1000 - 60000, // 1 min buffer
 	};
 
-	await saveTokenCache(testTokens);
-	return testTokens;
+	return cachedToken;
+}
+
+/**
+ * Gets access token, fetching new one if expired
+ */
+export async function getAccessToken(): Promise<string> {
+	if (cachedToken && Date.now() < cachedToken.expires_at) {
+		return cachedToken.access_token;
+	}
+
+	const token = await fetchAccessToken();
+	return token.access_token;
+}
+
+/**
+ * Loads token cache (for backwards compat - now auto-fetches)
+ */
+export async function loadTokenCache(): Promise<CachedToken | null> {
+	if (!cachedToken) {
+		try {
+			cachedToken = await fetchAccessToken();
+		} catch {
+			return null;
+		}
+	}
+	return cachedToken;
+}
+
+/**
+ * No-op for backwards compat
+ */
+export async function saveTokenCache(): Promise<boolean> {
+	return true;
+}
+
+/**
+ * Test tokens for test mode
+ */
+export async function createTestTokens(): Promise<CachedToken> {
+	cachedToken = {
+		access_token: `test_access_token_${Date.now()}`,
+		expires_at: Date.now() + 3600 * 1000,
+	};
+	return cachedToken;
 }
 
 export default {

@@ -4,6 +4,11 @@
 
 import { ensureAuthenticated } from "../auth";
 import { DEFAULT_TIMEZONE } from "../config";
+import {
+	canModifyMailbox,
+	formatAllowedMailboxes,
+	getCurrentUserEmail,
+} from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 import type { CreateEventArgs, DateTimeTimeZone, MCPResponse } from "./types";
 
@@ -29,6 +34,19 @@ async function handleCreateEvent(args: CreateEventArgs): Promise<MCPResponse> {
 	try {
 		// Get access token
 		const accessToken = await ensureAuthenticated();
+
+		// Check if the current mailbox has permission to modify
+		const currentUserEmail = await getCurrentUserEmail(accessToken);
+		if (!canModifyMailbox(currentUserEmail)) {
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Creating events is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+					},
+				],
+			};
+		}
 
 		// Build API endpoint
 		const endpoint = "me/events";

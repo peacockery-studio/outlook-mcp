@@ -7,20 +7,19 @@
 
 /**
  * Configuration for authenticating with Microsoft Graph API via Azure AD.
+ * Uses client credentials flow (app-only auth) - no user interaction needed.
  */
 export interface AuthConfig {
+	/** Azure AD tenant ID */
+	tenantId: string;
 	/** Application (client) ID from Azure AD app registration */
 	clientId: string;
 	/** Client secret generated in Azure AD app registration */
 	clientSecret: string;
-	/** OAuth redirect URI for callback */
-	redirectUri: string;
 	/** Required OAuth scopes for Microsoft Graph */
 	scopes: string[];
-	/** File path where tokens are stored */
+	/** File path where tokens are stored (for backwards compat) */
 	tokenStorePath: string;
-	/** Auth server URL */
-	authServerUrl: string;
 }
 
 /**
