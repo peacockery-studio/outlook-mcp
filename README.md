@@ -2,154 +2,158 @@
 
 # Modular Outlook MCP Server
 
-This is a modular implementation of the Outlook MCP (Model Context Protocol) server that connects Claude with Microsoft Outlook through the Microsoft Graph API.
+A modular MCP (Model Context Protocol) server that connects Claude with Microsoft Outlook through the Microsoft Graph API using **app-only (client credentials) authentication** — no browser sign-in required.
+
 Certified by MCPHub https://mcphub.com/mcp-servers/ryaker/outlook-mcp
 
 ## Directory Structure
 
-```sql
+```typescript
 ├── index.ts                 # Main entry point
 ├── config.ts                # Configuration settings
 ├── types.ts                 # Shared TypeScript type definitions
 ├── auth/                    # Authentication modules
 │   ├── index.ts             # Authentication exports
-│   ├── token-manager.ts     # Token storage and refresh
+│   ├── token-manager.ts     # Token management (client credentials)
 │   └── tools.ts             # Auth-related tools
 ├── calendar/                # Calendar functionality
-│   ├── index.ts             # Calendar exports
-│   ├── list.ts              # List events
+│   ├── index.ts             # Calendar exports and tool schemas
+│   ├── types.ts             # Calendar type definitions
+│   ├── list.ts              # List events (calendarView)
 │   ├── create.ts            # Create event
 │   ├── delete.ts            # Delete event
 │   ├── cancel.ts            # Cancel event
 │   ├── accept.ts            # Accept event
-│   ├── tentative.ts         # Tentatively accept event
 │   └── decline.ts           # Decline event
 ├── config/                  # Configuration modules
 │   └── mailbox-permissions.ts  # Mailbox permission restrictions
 ├── email/                   # Email functionality
-│   ├── index.ts             # Email exports
+│   ├── index.ts             # Email exports and tool schemas
+│   ├── folder-utils.ts      # Folder resolution utilities
 │   ├── list.ts              # List emails
 │   ├── search.ts            # Search emails
 │   ├── read.ts              # Read email
 │   ├── send.ts              # Send email
+│   ├── mark-as-read.ts      # Mark as read/unread
 │   ├── categories.ts        # Email categories management
 │   └── archive-delete.ts    # Archive and delete emails
+├── folder/                  # Folder management
+│   ├── index.ts             # Folder exports and tool schemas
+│   ├── list.ts              # List folders
+│   ├── create.ts            # Create folder
+│   └── move.ts              # Move emails between folders
+├── rules/                   # Inbox rules
+│   ├── index.ts             # Rules exports and tool schemas
+│   ├── list.ts              # List rules
+│   └── create.ts            # Create rule
+├── tests/                   # Test suite
+│   ├── mailbox-permissions.test.ts
+│   ├── tool-schemas.test.ts
+│   ├── error-responses.test.ts
+│   └── mock-mode.test.ts
 └── utils/                   # Utility functions
     ├── graph-api.ts         # Microsoft Graph API helper
-    ├── odata-helpers.ts     # OData query building
     └── mock-data.ts         # Test mode data
 ```
 
 ## Features
 
-- **Authentication**: OAuth 2.0 authentication with Microsoft Graph API
-- **Email Management**: List, search, read, and send emails
+- **App-only Authentication**: Uses client credentials flow — no browser sign-in or user interaction required
+- **Email Management**: List, search, read, send, mark as read
 - **Categories Management**: Get master categories and set categories on emails
-- **Archive & Delete**: Archive emails to archive folder, permanently delete emails
-- **Calendar Management**: List, create, accept, decline, and delete calendar events
-- **Mailbox Permission Restrictions**: Configurable read-only vs full-access per mailbox
-- **Modular Structure**: Clean separation of concerns for better maintainability
-- **OData Filter Handling**: Proper escaping and formatting of OData queries
+- **Archive & Delete**: Archive emails to archive folder, soft/hard delete
+- **Calendar Management**: List upcoming events (recurring-aware), create, accept, decline, cancel, delete
+- **Folder Management**: List, create, move emails between folders
+- **Inbox Rules**: List, create, reorder rules
+- **Mailbox Permission Restrictions**: Configurable per-mailbox access control
+- **Multi-mailbox**: Access multiple mailboxes via the `mailbox` parameter on each tool
 - **Test Mode**: Simulated responses for testing without real API calls
-- **TypeScript**: Fully typed codebase for improved developer experience
+- **TypeScript**: Fully typed codebase with strict mode
 
 ## Quick Start
 
 1. **Install dependencies**: `bun install`
-2. **Azure setup**: Register app in Azure Portal (see detailed steps below)
+2. **Azure setup**: Register app in Azure Portal with Application permissions (see below)
 3. **Configure environment**: Copy `.env.example` to `.env` and add your Azure credentials
 4. **Configure Claude**: Update your Claude Desktop config with the server path
-5. **Start auth server**: `bun run auth-server`
-6. **Authenticate**: Use the authenticate tool in Claude to get the OAuth URL
-7. **Start using**: Access your Outlook data through Claude!
+5. **Start using**: No auth server needed — credentials are loaded automatically from env
 
 ## Installation
 
 ### Prerequisites
-- Bun runtime (https://bun.sh) - fast JavaScript/TypeScript runtime
+- [Bun runtime](https://bun.sh) — fast JavaScript/TypeScript runtime
 - Azure account for app registration
-
-### Install Dependencies
 
 ```bash
 bun install
 ```
 
-This will install the required dependencies including:
-- `@modelcontextprotocol/sdk` - MCP protocol implementation
-
-**Note**: Bun natively supports TypeScript and auto-loads `.env` files, so no additional configuration is needed.
+Bun natively supports TypeScript and auto-loads `.env` files, so no additional tooling is needed.
 
 ## Azure App Registration & Configuration
 
-To use this MCP server you need to first register and configure an app in Azure Portal. The following steps will take you through the process of registering a new app, configuring its permissions, and generating a client secret.
+This server uses **app-only (client credentials)** authentication. The app acts on behalf of your organization, not on behalf of a specific signed-in user. This requires admin consent for Application permissions.
 
-### App Registration
+### 1. App Registration
 
-1. Open [Azure Portal](https://portal.azure.com/) in your browser
-2. Sign in with a Microsoft Work or Personal account
-3. Search for or cilck on "App registrations"
-4. Click on "New registration"
-5. Enter a name for the app, for example "Outlook MCP Server"
-6. Select the "Accounts in any organizational directory and personal Microsoft accounts" option
-7. In the "Redirect URI" section, select "Web" from the dropdown and enter "http://localhost:3333/auth/callback" in the textbox
-8. Click on "Register"
-9. From the Overview section of the app settings page, copy the "Application (client) ID" and enter it as the MS_CLIENT_ID in the .env file as well as the OUTLOOK_CLIENT_ID in the claude-config-sample.json file
+1. Open [Azure Portal](https://portal.azure.com/)
+2. Go to **App registrations** → **New registration**
+3. Enter a name (e.g., "Outlook MCP Server")
+4. Select **Accounts in this organizational directory only** (single tenant)
+5. **No redirect URI needed** — client credentials flow has no browser redirect
+6. Click **Register**
+7. Copy the **Application (client) ID** → this is your `MS_CLIENT_ID`
+8. Copy the **Directory (tenant) ID** from the Overview page → this is your `MS_TENANT_ID`
 
-### App Permissions
+### 2. Application Permissions
 
-1. From the app settings page in Azure Portal select the "API permissions" option under the Manage section
-2. Click on "Add a permission"
-3. Click on "Microsoft Graph"
-4. Select "Delegated permissions"
-5. Search for the following permissions and slect the checkbox next to each one
-    - offline_access
-    - User.Read
-    - Mail.Read
-    - Mail.Send
-    - Calendars.Read
-    - Calendars.ReadWrite
-    - Contacts.Read
-6. Click on "Add permissions"
+> ⚠️ These are **Application** permissions (not Delegated). They require admin consent.
 
-### Client Secret
+1. Go to **API permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions**
+2. Add the following permissions:
 
-1. From the app settings page in Azure Portal select the "Certificates & secrets" option under the Manage section
-2. Switch to the "Client secrets" tab
-3. Click on "New client secret"
-4. Enter a description, for example "Client Secret"
-5. Select the longest possible expiration time
-6. Click on "Add"
-7. **⚠️ IMPORTANT**: Copy the secret **VALUE** (not the Secret ID) and save it for the next step
+| Permission | Purpose |
+|-----------|---------|
+| `Mail.Read` | Read emails |
+| `Mail.ReadWrite` | Move, archive, update emails |
+| `Mail.Send` | Send emails |
+| `Calendars.ReadWrite` | Read and modify calendar events |
+| `MailboxSettings.ReadWrite` | Read and manage inbox rules |
+
+3. Click **Add permissions**
+4. Click **Grant admin consent for [your organization]** — this is required for Application permissions
+
+### 3. Client Secret
+
+1. Go to **Certificates & secrets** → **Client secrets** → **New client secret**
+2. Enter a description and select the longest expiration available
+3. Click **Add**
+4. ⚠️ Copy the secret **Value** (not the Secret ID) immediately — it won't be shown again
 
 ## Configuration
 
-### 1. Environment Variables
+### Environment Variables
 
-Create a `.env` file in the project root by copying the example:
+Create a `.env` file in the project root:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your Azure credentials:
+Edit `.env`:
 
 ```bash
-# Get these values from Azure Portal > App Registrations > Your App
+MS_TENANT_ID=your-directory-tenant-id-here
 MS_CLIENT_ID=your-application-client-id-here
 MS_CLIENT_SECRET=your-client-secret-VALUE-here
 USE_TEST_MODE=false
 ```
 
-**Important Notes:**
-- Use `MS_CLIENT_ID` and `MS_CLIENT_SECRET` in the `.env` file
-- For Claude Desktop config, you'll use `OUTLOOK_CLIENT_ID` and `OUTLOOK_CLIENT_SECRET`
-- Always use the client secret **VALUE**, never the Secret ID
-- Bun auto-loads `.env` files, so no additional configuration is needed
+**Important**: Use the secret **Value**, not the Secret ID.
 
-### 2. Claude Desktop Configuration
+### Claude Desktop Configuration
 
-Copy the configuration from `claude-config-sample.json` to your Claude Desktop config file and update the paths and credentials:
+Copy from `claude-config-sample.json` and update paths and credentials:
 
 ```json
 {
@@ -161,6 +165,7 @@ Copy the configuration from `claude-config-sample.json` to your Claude Desktop c
       ],
       "env": {
         "USE_TEST_MODE": "false",
+        "OUTLOOK_TENANT_ID": "your-tenant-id-here",
         "OUTLOOK_CLIENT_ID": "your-client-id-here",
         "OUTLOOK_CLIENT_SECRET": "your-client-secret-here"
       }
@@ -169,152 +174,85 @@ Copy the configuration from `claude-config-sample.json` to your Claude Desktop c
 }
 ```
 
-### 3. Advanced Configuration (Optional)
-
-To configure server behavior, you can edit `config.ts` to change:
-
-- Server name and version
-- Test mode settings
-- Authentication parameters
-- Email field selections
-- API endpoints
-
-## Usage with Claude Desktop
-
-1. **Configure Claude Desktop**: Add the server configuration (see Configuration section above)
-2. **Restart Claude Desktop**: Close and reopen Claude Desktop to load the new MCP server
-3. **Start Authentication Server**: Open a terminal and run `bun run auth-server`
-4. **Authenticate**: In Claude Desktop, use the `authenticate` tool to get an OAuth URL
-5. **Complete OAuth Flow**: Visit the URL in your browser and sign in with Microsoft
-6. **Start Using**: Once authenticated, you can use all the Outlook tools in Claude!
-
-## Running Standalone
-
-You can test the server using:
-
-```bash
-./test-modular-server.sh
-```
-
-This will use the MCP Inspector to directly connect to the server and let you test the available tools.
-
 ## Authentication Flow
 
-The authentication process requires two steps:
+No browser sign-in or auth server is required. The server automatically fetches an access token using your app credentials when needed:
 
-### Step 1: Start the Authentication Server
-```bash
-bun run auth-server
-```
-This starts a local server on port 3333 that handles the OAuth callback from Microsoft.
+1. Claude starts the MCP server
+2. Server reads `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` from environment
+3. On first API call, a token is fetched via `POST /oauth2/v2.0/token` (client credentials)
+4. Token is cached in memory and refreshed automatically when it expires
 
-**⚠️ Important**: The auth server MUST be running before you try to authenticate. The authentication URL will not work if the server isn't running.
+You can verify credentials are working using the `authenticate` tool in Claude.
 
-### Step 2: Authenticate with Microsoft
-1. In Claude Desktop, use the `authenticate` tool
-2. Claude will provide a URL like: `http://localhost:3333/auth?client_id=your-client-id`
-3. Visit this URL in your browser
-4. Sign in with your Microsoft account
-5. Grant the requested permissions
-6. You'll be redirected back to a success page
-7. Tokens are automatically stored in `~/.outlook-mcp-tokens.json`
+## Mailbox Parameter
 
-The authentication server can be stopped after successful authentication (tokens are saved). However, you'll need to restart it if you need to re-authenticate.
+All tools that access Outlook data require a `mailbox` parameter specifying which mailbox to operate on (e.g., `chi@desertservices.net`). This is how the server knows which user's data to access in app-only mode.
 
-## Troubleshooting
-
-### Common Installation Issues
-
-#### "Cannot find module '@modelcontextprotocol/sdk/server/index.js'"
-**Solution**: Install dependencies first:
-```bash
-bun install
-```
-
-#### "Error: listen EADDRINUSE: address already in use :::3333"
-**Solution**: Port 3333 is already in use. Kill the existing process:
-```bash
-bunx kill-port 3333
-```
-Then restart the auth server: `bun run auth-server`
-
-### Authentication Issues
-
-#### "Invalid client secret provided" (Error AADSTS7000215)
-**Root Cause**: You're using the Secret ID instead of the Secret Value.
-
-**Solution**:
-1. Go to Azure Portal > App Registrations > Your App > Certificates & secrets
-2. Copy the **Value** column (not the Secret ID column)
-3. Update both:
-   - `.env` file: `MS_CLIENT_SECRET=actual-secret-value`
-   - Claude Desktop config: `OUTLOOK_CLIENT_SECRET=actual-secret-value`
-4. Restart the auth server: `bun run auth-server`
-
-#### Authentication URL doesn't work / "This site can't be reached"
-**Root Cause**: Authentication server isn't running.
-
-**Solution**:
-1. Start the auth server first: `bun run auth-server`
-2. Wait for "Authentication server running at http://localhost:3333"
-3. Then try the authentication URL in Claude
-
-#### "Authentication required" after successful setup
-**Root Cause**: Token may have expired or been corrupted.
-
-**Solutions**:
-1. Check if token file exists: `~/.outlook-mcp-tokens.json`
-2. If corrupted, delete the file and re-authenticate
-3. Restart the auth server and authenticate again
-
-### Configuration Issues
-
-#### Server doesn't start in Claude Desktop
-**Solutions**:
-1. Check the absolute path in your Claude Desktop config
-2. Ensure `OUTLOOK_CLIENT_ID` and `OUTLOOK_CLIENT_SECRET` are set in Claude config
-3. Restart Claude Desktop after config changes
-
-#### Environment variables not loading
-**Solutions**:
-1. Ensure `.env` file exists in the project root
-2. Use `MS_CLIENT_ID` and `MS_CLIENT_SECRET` in `.env`
-3. Don't add quotes around values in `.env` file
-
-### API and Runtime Issues
-
-- **OData Filter Errors**: Check server logs for escape sequence issues
-- **API Call Failures**: Look for detailed error messages in the response
-- **Token Refresh Issues**: Delete `~/.outlook-mcp-tokens.json` and re-authenticate
-
-### Getting Help
-
-If you're still having issues:
-1. Check the console output from `bun run auth-server` for detailed error messages
-2. Verify your Azure app registration settings match the documentation
-3. Ensure you have the required Microsoft Graph API permissions
+Example: "List my last 10 emails from chi@desertservices.net"
 
 ## Mailbox Permissions
 
-The server includes configurable mailbox permission restrictions to prevent accidental modifications on certain mailboxes.
+Write operations (send, archive, delete, create/modify rules, move emails, create events) are restricted to specific mailboxes to prevent accidental modifications.
 
-### Full Access Mailboxes
-The following mailboxes have full access (send, modify, delete, archive):
-- contracts@
-- chi@
-- dustpermits@
+### Allowed Mailboxes (Full Access)
+Configured in `config/mailbox-permissions.ts`:
+- `contracts@desertservices.net`
+- `chi@desertservices.net`
+- `dustpermits@desertservices.net`
 
-### Read-Only Mailboxes
-All other mailboxes are restricted to read-only access. Attempting to send emails, delete, or archive from these mailboxes will be blocked with an error message.
+All other mailboxes are **read-only**. Attempting write operations from an unlisted mailbox returns an error.
 
-Permissions are configured in `config/mailbox-permissions.ts`. You can modify the `FULL_ACCESS_MAILBOXES` array to customize which mailboxes have full access.
+## Development
+
+```bash
+bun run start        # Start the MCP server
+bun test             # Run tests (114 pass)
+bun run typecheck    # TypeScript type checking
+bun run lint         # Check formatting (Biome/Ultracite)
+bun run lint:fix     # Auto-fix formatting
+bun run inspect      # Open MCP Inspector for interactive testing
+```
+
+### Test Mode
+
+```bash
+USE_TEST_MODE=true bun run start           # Start with mock data
+USE_TEST_MODE=true bun test tests/mock-mode.test.ts  # Run integration tests
+```
+
+## Troubleshooting
+
+### Authentication Errors
+
+#### "Missing credentials" on startup
+Set all three env vars: `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`
+
+#### "Invalid client secret" (AADSTS7000215)
+You used the Secret ID instead of the Secret Value. Go to Azure Portal → Certificates & secrets and copy the **Value** column.
+
+#### 403 Forbidden on API calls
+Admin consent has not been granted for Application permissions. Go to Azure Portal → API permissions → **Grant admin consent**.
+
+#### 403 on rules operations
+Ensure `MailboxSettings.ReadWrite` Application permission is granted (not just `Mail.ReadWrite`).
+
+#### "Sending is not allowed from this mailbox"
+The mailbox is not in the `canSend` list in `config/mailbox-permissions.ts`. Add it or use an allowed mailbox.
+
+### API Errors
+
+#### "cpim_sts_Unsupported_endpoint"
+You have a stale version of the server — this error means `me/` endpoints were used. Update to the latest version.
+
+#### 400 on search with attachments filter
+This was a known bug in older versions — `$search` and `$filter` cannot be combined. Fixed in v2.1.0.
 
 ## Extending the Server
-
-To add more functionality:
 
 1. Create new module directories (e.g., `contacts/`)
 2. Implement tool handlers in separate `.ts` files with proper TypeScript types
 3. Export tool definitions from module `index.ts` files
 4. Import and add tools to `TOOLS` array in `index.ts`
 5. Add any shared types to `types.ts` at the project root
+6. Include a `mailbox` required parameter in all tool schemas that make API calls

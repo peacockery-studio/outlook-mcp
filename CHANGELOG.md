@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-22
+
+### Fixed
+- **BREAKING BUG**: All `me/` endpoints replaced with `users/{mailbox}/` — `me/` is invalid with client credentials (app-only) auth and returned `cpim_sts_Unsupported_endpoint` for every API call
+- **BREAKING BUG**: `getCurrentUserEmail()` called `GET /me` which silently failed, causing all permission checks to block every write operation (send, archive, delete, rules); removed and replaced with explicit `mailbox` parameter
+- **BREAKING BUG**: Double URL-encoding of email IDs — `encodeURIComponent(emailId)` in handlers conflicted with path-segment encoding in `graph-api.ts`; removed pre-encoding from all handlers
+- `$search` and `$orderby` cannot be combined for mail endpoints — removed `$orderby` when `$search` is active in `email/search.ts`
+- `$search` and `$filter` cannot be combined for mail endpoints — `addBooleanFilters` no longer called when `$search` is set
+- `fallbackRequestHandler` anti-pattern replaced with proper `setRequestHandler(ListToolsRequestSchema)` and `setRequestHandler(CallToolRequestSchema)` SDK calls
+- `accept-event` tool was registered but its handler was never added to the tools array — now correctly wired up
+- Added `isError: true` to all error return paths across all handlers
+- Added `additionalProperties: false` to all tool input schemas
+
+### Added
+- `mailbox` required parameter on every tool that accesses Outlook data — specifies which mailbox to operate on in app-only context
+- Calendar `list-events` now uses `calendarView` endpoint instead of `events` — correctly expands recurring event instances within a 30-day window
+- Test suite: `tests/mailbox-permissions.test.ts`, `tests/tool-schemas.test.ts`, `tests/error-responses.test.ts`, `tests/mock-mode.test.ts` (114 tests)
+- Updated SDK to `@modelcontextprotocol/sdk` v1.26.0
+
+### Removed
+- `outlook-auth-server.ts` — delegated OAuth auth server, no longer needed with client credentials
+- `getCurrentUserEmail()` from `config/mailbox-permissions.ts`
+- `bun run auth-server` script from `package.json`
+- One-off root-level dev scripts: `create-notifications-rule.ts`, `debug-env.ts`, `find-folder-ids.ts`, `move-github-emails.ts`, `test-config.ts`, `test-pagination.ts`
+- Shell scripts: `backup-logs.sh`, `test-direct.sh`, `test-modular-server.sh`
+- `package-lock.json` (project uses Bun, not npm)
+- Unused `zod` dependency
+
+### Required Azure Permission Changes
+- `MailboxSettings.ReadWrite` Application permission required for rules operations (previously undocumented; `Mail.ReadWrite` alone is insufficient)
+- `Mail.Send` Application permission required for sending (separate from `Mail.ReadWrite`)
+- No Redirect URI needed in Azure app registration for client credentials flow
+
 ## [2.0.0] - 2025-01-29
 
 ### Changed
@@ -57,5 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token storage in `~/.outlook-mcp-tokens.json`
 - Configurable via environment variables
 
+[2.1.0]: https://github.com/peacockery-studio/outlook-mcp/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/peacockery-studio/outlook-mcp/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/peacockery-studio/outlook-mcp/releases/tag/v1.0.0
