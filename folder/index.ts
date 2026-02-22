@@ -2,10 +2,10 @@
  * Folder management module for Outlook MCP server
  */
 
-import type { MCPResponse, ToolDefinition } from "../auth/tools.js";
-import handleCreateFolder from "./create.js";
-import handleListFolders from "./list.js";
-import handleMoveEmails from "./move.js";
+import type { MCPResponse, ToolDefinition } from "../auth/tools";
+import handleCreateFolder from "./create";
+import handleListFolders from "./list";
+import handleMoveEmails from "./move";
 
 export const folderTools: ToolDefinition[] = [
 	{

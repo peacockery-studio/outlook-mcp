@@ -2,15 +2,15 @@
  * Create rule functionality
  */
 
-import { ensureAuthenticated } from "../auth/index.js";
-import type { MCPResponse } from "../auth/tools.js";
+import { ensureAuthenticated } from "../auth/index";
+import type { MCPResponse } from "../auth/tools";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-} from "../config/mailbox-permissions.js";
-import { getFolderIdByName } from "../email/folder-utils.js";
-import { callGraphAPI } from "../utils/graph-api.js";
-import { getInboxRules } from "./list.js";
+} from "../config/mailbox-permissions";
+import { getFolderIdByName } from "../email/folder-utils";
+import { callGraphAPI } from "../utils/graph-api";
+import { getInboxRules } from "./list";
 
 export interface CreateRuleArgs {
 	name: string;

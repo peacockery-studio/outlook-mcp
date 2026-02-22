@@ -1,8 +1,8 @@
 /**
  * Authentication module for Outlook MCP server
  */
-import tokenManager from "./token-manager.js";
-import { authTools } from "./tools.js";
+import tokenManager from "./token-manager";
+import { authTools } from "./tools";
 
 /**
  * Ensures the user is authenticated and returns an access token

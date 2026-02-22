@@ -2,15 +2,15 @@
  * Email rules management module for Outlook MCP server
  */
 
-import { ensureAuthenticated } from "../auth/index.js";
-import type { MCPResponse, ToolDefinition } from "../auth/tools.js";
+import { ensureAuthenticated } from "../auth/index";
+import type { MCPResponse, ToolDefinition } from "../auth/tools";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-} from "../config/mailbox-permissions.js";
-import { callGraphAPI } from "../utils/graph-api.js";
-import handleCreateRule from "./create.js";
-import { getInboxRules, handleListRules } from "./list.js";
+} from "../config/mailbox-permissions";
+import { callGraphAPI } from "../utils/graph-api";
+import handleCreateRule from "./create";
+import { getInboxRules, handleListRules } from "./list";
 
 export interface EditRuleSequenceArgs {
 	ruleName: string;

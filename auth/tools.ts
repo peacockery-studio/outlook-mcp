@@ -1,8 +1,8 @@
 /**
  * Authentication-related tools for the Outlook MCP server
  */
-import config from "../config.js";
-import tokenManager from "./token-manager.js";
+import config from "../config";
+import tokenManager from "./token-manager";
 
 export interface MCPContent {
 	type: "text";

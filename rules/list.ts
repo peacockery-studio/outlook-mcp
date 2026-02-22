@@ -2,9 +2,9 @@
  * List rules functionality
  */
 
-import { ensureAuthenticated } from "../auth/index.js";
-import type { MCPResponse } from "../auth/tools.js";
-import { callGraphAPI } from "../utils/graph-api.js";
+import { ensureAuthenticated } from "../auth/index";
+import type { MCPResponse } from "../auth/tools";
+import { callGraphAPI } from "../utils/graph-api";
 
 export interface EmailAddress {
 	address: string;

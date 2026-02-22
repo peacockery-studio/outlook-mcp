@@ -2,7 +2,7 @@
  * Token management using client credentials flow (app-only auth)
  * No user interaction required - uses tenant/client/secret from .env
  */
-import config from "../config.js";
+import config from "../config";
 
 interface TokenResponse {
 	access_token: string;
