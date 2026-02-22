@@ -17,8 +17,16 @@ export interface CreateRuleArgs {
 	fromAddresses?: string;
 	containsSubject?: string;
 	hasAttachments?: boolean;
+	headerContains?: string;
+	sentOnlyToMe?: boolean;
+	sentCcMe?: boolean;
+	isMeetingRequest?: boolean;
 	moveToFolder?: string;
+	copyToFolder?: string;
 	markAsRead?: boolean;
+	forwardTo?: string;
+	redirectTo?: string;
+	stopProcessingRules?: boolean;
 	isEnabled?: boolean;
 	sequence?: number;
 	mailbox?: string;
@@ -50,8 +58,16 @@ export async function handleCreateRule(
 		fromAddresses,
 		containsSubject,
 		hasAttachments,
+		headerContains,
+		sentOnlyToMe,
+		sentCcMe,
+		isMeetingRequest,
 		moveToFolder,
+		copyToFolder,
 		markAsRead,
+		forwardTo,
+		redirectTo,
+		stopProcessingRules,
 		isEnabled = true,
 		sequence,
 	} = args;
@@ -81,15 +97,27 @@ export async function handleCreateRule(
 	}
 
 	const hasCondition =
-		fromAddresses || containsSubject || hasAttachments === true;
-	const hasAction = moveToFolder || markAsRead === true;
+		fromAddresses ||
+		containsSubject ||
+		hasAttachments === true ||
+		headerContains ||
+		sentOnlyToMe === true ||
+		sentCcMe === true ||
+		isMeetingRequest === true;
+	const hasAction =
+		moveToFolder ||
+		copyToFolder ||
+		markAsRead === true ||
+		forwardTo ||
+		redirectTo ||
+		stopProcessingRules === true;
 
 	if (!hasCondition) {
 		return {
 			content: [
 				{
 					type: "text",
-					text: "At least one condition is required. Specify fromAddresses, containsSubject, or hasAttachments.",
+					text: "At least one condition is required. Specify fromAddresses, containsSubject, hasAttachments, headerContains, sentOnlyToMe, sentCcMe, or isMeetingRequest.",
 				},
 			],
 			isError: true,
@@ -101,7 +129,7 @@ export async function handleCreateRule(
 			content: [
 				{
 					type: "text",
-					text: "At least one action is required. Specify moveToFolder or markAsRead.",
+					text: "At least one action is required. Specify moveToFolder, copyToFolder, markAsRead, forwardTo, redirectTo, or stopProcessingRules.",
 				},
 			],
 			isError: true,
@@ -129,8 +157,16 @@ export async function handleCreateRule(
 			fromAddresses,
 			containsSubject,
 			hasAttachments,
+			headerContains,
+			sentOnlyToMe,
+			sentCcMe,
+			isMeetingRequest,
 			moveToFolder,
+			copyToFolder,
 			markAsRead,
+			forwardTo,
+			redirectTo,
+			stopProcessingRules,
 			isEnabled,
 			sequence,
 		});
@@ -189,8 +225,16 @@ async function createInboxRule(
 			fromAddresses,
 			containsSubject,
 			hasAttachments,
+			headerContains,
+			sentOnlyToMe,
+			sentCcMe,
+			isMeetingRequest,
 			moveToFolder,
+			copyToFolder,
 			markAsRead,
+			forwardTo,
+			redirectTo,
+			stopProcessingRules,
 			isEnabled,
 			sequence,
 		} = ruleOptions;
@@ -259,6 +303,22 @@ async function createInboxRule(
 			rule.conditions.hasAttachment = true;
 		}
 
+		if (headerContains) {
+			rule.conditions.headerContains = [headerContains];
+		}
+
+		if (sentOnlyToMe === true) {
+			rule.conditions.sentOnlyToMe = true;
+		}
+
+		if (sentCcMe === true) {
+			rule.conditions.sentCcMe = true;
+		}
+
+		if (isMeetingRequest === true) {
+			rule.conditions.isAutomaticReply = true;
+		}
+
 		if (moveToFolder) {
 			try {
 				const folderId = await getFolderIdByName(
@@ -285,8 +345,70 @@ async function createInboxRule(
 			}
 		}
 
+		if (copyToFolder) {
+			try {
+				const folderId = await getFolderIdByName(
+					accessToken,
+					copyToFolder,
+					mailbox,
+				);
+				if (!folderId) {
+					return {
+						success: false,
+						message: `Target folder "${copyToFolder}" not found. Please specify a valid folder name.`,
+					};
+				}
+
+				rule.actions.copyToFolder = folderId;
+			} catch (folderError) {
+				console.error(
+					`Error resolving folder "${copyToFolder}": ${(folderError as Error).message}`,
+				);
+				return {
+					success: false,
+					message: `Error resolving folder "${copyToFolder}": ${(folderError as Error).message}`,
+				};
+			}
+		}
+
 		if (markAsRead === true) {
 			rule.actions.markAsRead = true;
+		}
+
+		if (forwardTo) {
+			const recipients = forwardTo
+				.split(",")
+				.map((email) => email.trim())
+				.filter((email) => email)
+				.map((email) => ({
+					emailAddress: {
+						address: email,
+					},
+				}));
+
+			if (recipients.length > 0) {
+				rule.actions.forwardTo = recipients;
+			}
+		}
+
+		if (redirectTo) {
+			const recipients = redirectTo
+				.split(",")
+				.map((email) => email.trim())
+				.filter((email) => email)
+				.map((email) => ({
+					emailAddress: {
+						address: email,
+					},
+				}));
+
+			if (recipients.length > 0) {
+				rule.actions.redirectTo = recipients;
+			}
+		}
+
+		if (stopProcessingRules === true) {
+			rule.actions.stopProcessingRules = true;
 		}
 
 		const response = await callGraphAPI<{ id: string; displayName: string }>(

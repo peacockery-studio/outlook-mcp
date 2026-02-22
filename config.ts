@@ -20,7 +20,15 @@ export const EMAIL_SELECT_FIELDS =
 export const EMAIL_DETAIL_FIELDS =
 	"id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,bodyPreview,body,hasAttachments,importance,isRead,internetMessageHeaders";
 export const CALENDAR_SELECT_FIELDS =
-	"id,subject,bodyPreview,start,end,location,organizer,attendees,isAllDay,isCancelled";
+	"id,subject,bodyPreview,start,end,location,organizer,attendees,isAllDay,isCancelled,isOnlineMeeting,onlineMeetingUrl,isReminderOn,reminderMinutesBeforeStart,type,seriesMasterId";
+export const CALENDAR_EVENT_DETAIL_FIELDS =
+	"id,subject,bodyPreview,body,start,end,location,organizer,attendees,isAllDay,isCancelled,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,isReminderOn,reminderMinutesBeforeStart,recurrence,seriesMasterId,type,categories";
+export const CONTACT_SELECT_FIELDS =
+	"id,displayName,givenName,surname,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle,department";
+export const TASK_LIST_SELECT_FIELDS =
+	"id,displayName,isOwner,isShared,wellknownListName";
+export const TASK_SELECT_FIELDS =
+	"id,title,body,status,importance,isReminderOn,dueDateTime,createdDateTime,lastModifiedDateTime,completedDateTime";
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_RESULT_COUNT = 50;
 export const DEFAULT_TIMEZONE = "Central European Standard Time";
@@ -44,6 +52,10 @@ const config: Config = {
 	EMAIL_SELECT_FIELDS,
 	EMAIL_DETAIL_FIELDS,
 	CALENDAR_SELECT_FIELDS,
+	CALENDAR_EVENT_DETAIL_FIELDS,
+	CONTACT_SELECT_FIELDS,
+	TASK_LIST_SELECT_FIELDS,
+	TASK_SELECT_FIELDS,
 	DEFAULT_PAGE_SIZE,
 	MAX_RESULT_COUNT,
 	DEFAULT_TIMEZONE,

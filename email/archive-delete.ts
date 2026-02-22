@@ -248,10 +248,10 @@ export async function handleDeleteEmail(
 
 		try {
 			if (permanent) {
-				// Permanent delete using DELETE method
+				// Permanent delete using the permanentDelete action (GA April 2025)
 				// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
-				const endpoint = `users/${mailbox}/messages/${emailId}`;
-				await callGraphAPI(accessToken, "DELETE", endpoint);
+				const endpoint = `users/${mailbox}/messages/${emailId}/permanentDelete`;
+				await callGraphAPI(accessToken, "POST", endpoint);
 
 				return {
 					content: [

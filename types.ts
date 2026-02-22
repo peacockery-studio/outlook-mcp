@@ -42,6 +42,14 @@ export interface Config {
 	EMAIL_DETAIL_FIELDS: string;
 	/** Fields to select for calendar events */
 	CALENDAR_SELECT_FIELDS: string;
+	/** Fields to select for calendar event details */
+	CALENDAR_EVENT_DETAIL_FIELDS: string;
+	/** Fields to select for contacts */
+	CONTACT_SELECT_FIELDS: string;
+	/** Fields to select for task lists */
+	TASK_LIST_SELECT_FIELDS: string;
+	/** Fields to select for tasks */
+	TASK_SELECT_FIELDS: string;
 	/** Default number of items per page */
 	DEFAULT_PAGE_SIZE: number;
 	/** Maximum number of results to return */
@@ -373,4 +381,60 @@ export interface Tool {
 	inputSchema: JsonSchema;
 	/** Tool handler function */
 	handler: (args: Record<string, unknown>) => Promise<ToolResponse>;
+}
+
+/**
+ * Contact from Microsoft Graph.
+ */
+export interface Contact {
+	id: string;
+	displayName: string;
+	givenName?: string;
+	surname?: string;
+	emailAddresses?: Array<{ address: string; name?: string }>;
+	businessPhones?: string[];
+	mobilePhone?: string;
+	companyName?: string;
+	jobTitle?: string;
+	department?: string;
+}
+
+/**
+ * Task list from Microsoft To Do.
+ */
+export interface TaskList {
+	id: string;
+	displayName: string;
+	isOwner?: boolean;
+	isShared?: boolean;
+	wellknownListName?: string;
+}
+
+/**
+ * Task from Microsoft To Do.
+ */
+export interface TodoTask {
+	id: string;
+	title: string;
+	body?: { content: string; contentType: string };
+	status?: "notStarted" | "inProgress" | "completed" | "waitingOnOthers" | "deferred";
+	importance?: "low" | "normal" | "high";
+	isReminderOn?: boolean;
+	dueDateTime?: DateTimeTimeZone;
+	createdDateTime?: string;
+	lastModifiedDateTime?: string;
+	completedDateTime?: DateTimeTimeZone;
+}
+
+/**
+ * Email/event attachment from Microsoft Graph.
+ */
+export interface Attachment {
+	id: string;
+	name: string;
+	contentType: string;
+	size: number;
+	isInline: boolean;
+	"@odata.type"?: string;
+	contentBytes?: string;
 }

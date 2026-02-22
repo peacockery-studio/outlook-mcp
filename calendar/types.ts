@@ -81,6 +81,17 @@ export interface CalendarEvent {
 	attendees?: Attendee[];
 	isAllDay?: boolean;
 	isCancelled?: boolean;
+	isOnlineMeeting?: boolean;
+	onlineMeetingUrl?: string;
+	onlineMeeting?: {
+		joinUrl?: string;
+	};
+	isReminderOn?: boolean;
+	reminderMinutesBeforeStart?: number;
+	recurrence?: unknown;
+	seriesMasterId?: string;
+	type?: string;
+	categories?: string[];
 }
 
 /**
@@ -109,6 +120,10 @@ export interface CreateEventArgs {
 	end: string | DateTimeTimeZone;
 	attendees?: string[];
 	body?: string;
+	isOnlineMeeting?: boolean;
+	onlineMeetingProvider?: string;
+	isReminderOn?: boolean;
+	reminderMinutesBeforeStart?: number;
 	mailbox?: string;
 }
 
@@ -144,6 +159,62 @@ export interface CancelEventArgs {
  */
 export interface DeleteEventArgs {
 	eventId: string;
+	mailbox?: string;
+}
+
+/**
+ * Arguments for get-event tool
+ */
+export interface GetEventArgs {
+	eventId: string;
+	mailbox?: string;
+}
+
+/**
+ * Arguments for update-event tool
+ */
+export interface UpdateEventArgs {
+	eventId: string;
+	subject?: string;
+	start?: string | DateTimeTimeZone;
+	end?: string | DateTimeTimeZone;
+	location?: string;
+	body?: string;
+	attendees?: string[];
+	isOnlineMeeting?: boolean;
+	isReminderOn?: boolean;
+	reminderMinutesBeforeStart?: number;
+	mailbox?: string;
+}
+
+/**
+ * Arguments for tentatively-accept-event tool
+ */
+export interface TentativelyAcceptEventArgs {
+	eventId: string;
+	comment?: string;
+	sendResponse?: boolean;
+	mailbox?: string;
+}
+
+/**
+ * Arguments for forward-event tool
+ */
+export interface ForwardEventArgs {
+	eventId: string;
+	toRecipients: string;
+	comment?: string;
+	mailbox?: string;
+}
+
+/**
+ * Arguments for get-free-busy tool
+ */
+export interface GetFreeBusyArgs {
+	schedules: string[];
+	startTime: string;
+	endTime: string;
+	availabilityViewInterval?: number;
 	mailbox?: string;
 }
 

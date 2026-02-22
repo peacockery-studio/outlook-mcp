@@ -17,9 +17,12 @@ import {
 import { authTools } from "./auth";
 import { calendarTools } from "./calendar";
 import config from "./config";
+import { contactsTools } from "./contacts";
 import { emailTools } from "./email";
 import { folderTools } from "./folder";
 import { rulesTools } from "./rules";
+import { settingsTools } from "./settings";
+import { tasksTools } from "./tasks";
 import type { Tool } from "./types";
 
 // Log startup information
@@ -30,9 +33,12 @@ console.error(`Test mode is ${config.USE_TEST_MODE ? "enabled" : "disabled"}`);
 const TOOLS = [
 	...authTools,
 	...calendarTools,
+	...contactsTools,
 	...emailTools,
 	...folderTools,
 	...rulesTools,
+	...settingsTools,
+	...tasksTools,
 ] as Tool[];
 
 // Create server

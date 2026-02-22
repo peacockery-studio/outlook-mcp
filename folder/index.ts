@@ -5,6 +5,7 @@
 import type { MCPResponse, ToolDefinition } from "../auth/tools";
 import handleCreateFolder from "./create";
 import handleListFolders from "./list";
+import { handleRenameFolder, handleDeleteFolder } from "./manage";
 import handleMoveEmails from "./move";
 
 export const folderTools: ToolDefinition[] = [
@@ -93,6 +94,62 @@ export const folderTools: ToolDefinition[] = [
 			args: Record<string, unknown>,
 		) => Promise<MCPResponse>,
 	},
+	{
+		name: "rename-folder",
+		description: "Renames an existing mail folder",
+		inputSchema: {
+			type: "object",
+			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
+				folderName: {
+					type: "string",
+					description: "Current name of the folder to rename",
+				},
+				newName: {
+					type: "string",
+					description: "New name for the folder",
+				},
+			},
+			required: ["mailbox", "folderName", "newName"],
+			additionalProperties: false,
+		},
+		handler: handleRenameFolder as unknown as (
+			args: Record<string, unknown>,
+		) => Promise<MCPResponse>,
+	},
+	{
+		name: "delete-folder",
+		description: "Deletes a mail folder",
+		inputSchema: {
+			type: "object",
+			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
+				folderName: {
+					type: "string",
+					description: "Name of the folder to delete",
+				},
+			},
+			required: ["mailbox", "folderName"],
+			additionalProperties: false,
+		},
+		handler: handleDeleteFolder as unknown as (
+			args: Record<string, unknown>,
+		) => Promise<MCPResponse>,
+	},
 ];
 
-export { handleListFolders, handleCreateFolder, handleMoveEmails };
+export {
+	handleListFolders,
+	handleCreateFolder,
+	handleMoveEmails,
+	handleRenameFolder,
+	handleDeleteFolder,
+};

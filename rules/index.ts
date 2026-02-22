@@ -11,6 +11,7 @@ import {
 import { callGraphAPI } from "../utils/graph-api";
 import handleCreateRule from "./create";
 import { getInboxRules, handleListRules } from "./list";
+import { handleDeleteRule, handleUpdateRule } from "./manage";
 
 export interface EditRuleSequenceArgs {
 	ruleName: string;
@@ -183,13 +184,51 @@ export const rulesTools: ToolDefinition[] = [
 					type: "boolean",
 					description: "Whether the rule applies to emails with attachments",
 				},
+				headerContains: {
+					type: "string",
+					description: "Header text the email must contain",
+				},
+				sentOnlyToMe: {
+					type: "boolean",
+					description:
+						"Whether the rule applies only when the user is the sole recipient",
+				},
+				sentCcMe: {
+					type: "boolean",
+					description:
+						"Whether the rule applies when the user is in the CC field",
+				},
+				isMeetingRequest: {
+					type: "boolean",
+					description:
+						"Whether the rule applies to meeting request messages",
+				},
 				moveToFolder: {
 					type: "string",
 					description: "Name of the folder to move matching emails to",
 				},
+				copyToFolder: {
+					type: "string",
+					description: "Name of the folder to copy matching emails to",
+				},
 				markAsRead: {
 					type: "boolean",
 					description: "Whether to mark matching emails as read",
+				},
+				forwardTo: {
+					type: "string",
+					description:
+						"Comma-separated list of email addresses to forward matching emails to",
+				},
+				redirectTo: {
+					type: "string",
+					description:
+						"Comma-separated list of email addresses to redirect matching emails to",
+				},
+				stopProcessingRules: {
+					type: "boolean",
+					description:
+						"Whether to stop processing additional rules after this rule matches",
 				},
 				isEnabled: {
 					type: "boolean",
@@ -237,6 +276,142 @@ export const rulesTools: ToolDefinition[] = [
 			args: Record<string, unknown>,
 		) => Promise<MCPResponse>,
 	},
+	{
+		name: "delete-rule",
+		description: "Deletes an existing inbox rule",
+		inputSchema: {
+			type: "object",
+			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
+				ruleName: {
+					type: "string",
+					description: "Name of the rule to delete",
+				},
+			},
+			required: ["mailbox", "ruleName"],
+			additionalProperties: false,
+		},
+		handler: handleDeleteRule as unknown as (
+			args: Record<string, unknown>,
+		) => Promise<MCPResponse>,
+	},
+	{
+		name: "update-rule",
+		description: "Updates an existing inbox rule's conditions, actions, or settings",
+		inputSchema: {
+			type: "object",
+			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
+				ruleName: {
+					type: "string",
+					description: "Name of the rule to update",
+				},
+				displayName: {
+					type: "string",
+					description: "New display name for the rule",
+				},
+				isEnabled: {
+					type: "boolean",
+					description: "Whether the rule should be enabled",
+				},
+				sequence: {
+					type: "number",
+					description:
+						"Order in which the rule is executed (lower numbers run first)",
+				},
+				fromAddresses: {
+					type: "string",
+					description:
+						"Comma-separated list of sender email addresses for the rule condition",
+				},
+				subjectContains: {
+					type: "string",
+					description: "Subject text the email must contain",
+				},
+				bodyContains: {
+					type: "string",
+					description: "Body text the email must contain",
+				},
+				hasAttachments: {
+					type: "boolean",
+					description: "Whether the rule applies to emails with attachments",
+				},
+				headerContains: {
+					type: "string",
+					description: "Header text the email must contain",
+				},
+				sentOnlyToMe: {
+					type: "boolean",
+					description:
+						"Whether the rule applies only when the user is the sole recipient",
+				},
+				sentCcMe: {
+					type: "boolean",
+					description:
+						"Whether the rule applies when the user is in the CC field",
+				},
+				isMeetingRequest: {
+					type: "boolean",
+					description:
+						"Whether the rule applies to meeting request messages",
+				},
+				moveToFolder: {
+					type: "string",
+					description: "Name of the folder to move matching emails to",
+				},
+				copyToFolder: {
+					type: "string",
+					description: "Name of the folder to copy matching emails to",
+				},
+				markAsRead: {
+					type: "boolean",
+					description: "Whether to mark matching emails as read",
+				},
+				markImportance: {
+					type: "string",
+					enum: ["low", "normal", "high"],
+					description: "Importance level to set on matching emails",
+				},
+				forwardTo: {
+					type: "string",
+					description:
+						"Comma-separated list of email addresses to forward matching emails to",
+				},
+				redirectTo: {
+					type: "string",
+					description:
+						"Comma-separated list of email addresses to redirect matching emails to",
+				},
+				delete: {
+					type: "boolean",
+					description: "Whether to delete matching emails",
+				},
+				stopProcessingRules: {
+					type: "boolean",
+					description:
+						"Whether to stop processing additional rules after this rule matches",
+				},
+			},
+			required: ["mailbox", "ruleName"],
+			additionalProperties: false,
+		},
+		handler: handleUpdateRule as unknown as (
+			args: Record<string, unknown>,
+		) => Promise<MCPResponse>,
+	},
 ];
 
-export { handleListRules, handleCreateRule };
+export {
+	handleListRules,
+	handleCreateRule,
+	handleDeleteRule,
+	handleUpdateRule,
+};
