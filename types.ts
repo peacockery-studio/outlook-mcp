@@ -357,6 +357,7 @@ export interface ToolResponse {
 		type: "text";
 		text: string;
 	}>;
+	/** Set to true when the tool encountered an error, so clients can distinguish failure from success */
 	isError?: boolean;
 }
 
@@ -372,51 +373,4 @@ export interface Tool {
 	inputSchema: JsonSchema;
 	/** Tool handler function */
 	handler: (args: Record<string, unknown>) => Promise<ToolResponse>;
-}
-
-/**
- * MCP Request structure.
- */
-export interface McpRequest {
-	/** Request method */
-	method: string;
-	/** Request ID */
-	id?: string | number;
-	/** Request parameters */
-	params?: Record<string, unknown>;
-}
-
-/**
- * MCP Initialize response.
- */
-export interface InitializeResponse {
-	protocolVersion: string;
-	capabilities: {
-		tools: Record<string, object>;
-	};
-	serverInfo: {
-		name: string;
-		version: string;
-	};
-}
-
-/**
- * MCP Tools list response.
- */
-export interface ToolsListResponse {
-	tools: Array<{
-		name: string;
-		description: string;
-		inputSchema: JsonSchema;
-	}>;
-}
-
-/**
- * MCP Error response.
- */
-export interface McpError {
-	error: {
-		code: number;
-		message: string;
-	};
 }

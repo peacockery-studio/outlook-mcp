@@ -7,7 +7,6 @@ import type { MCPResponse, ToolDefinition } from "../auth/tools.js";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions.js";
 import { callGraphAPI } from "../utils/graph-api.js";
 import handleCreateRule from "./create.js";
@@ -16,6 +15,7 @@ import { getInboxRules, handleListRules } from "./list.js";
 export interface EditRuleSequenceArgs {
 	ruleName: string;
 	sequence: number;
+	mailbox?: string;
 }
 
 /**
@@ -24,6 +24,14 @@ export interface EditRuleSequenceArgs {
 export async function handleEditRuleSequence(
 	args: EditRuleSequenceArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const { ruleName, sequence } = args;
 
 	if (!ruleName) {
@@ -34,6 +42,7 @@ export async function handleEditRuleSequence(
 					text: "Rule name is required. Please specify the exact name of an existing rule.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -45,26 +54,27 @@ export async function handleEditRuleSequence(
 					text: "A positive sequence number is required. Lower numbers run first (higher priority).",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Editing rules is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
 	try {
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Editing rules is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
-		const rules = await getInboxRules(accessToken);
+		const rules = await getInboxRules(accessToken, mailbox);
 
 		const rule = rules.find((r) => r.displayName === ruleName);
 		if (!rule) {
@@ -75,13 +85,14 @@ export async function handleEditRuleSequence(
 						text: `Rule with name "${ruleName}" not found.`,
 					},
 				],
+				isError: true,
 			};
 		}
 
 		await callGraphAPI(
 			accessToken,
 			"PATCH",
-			`me/mailFolders/inbox/messageRules/${rule.id}`,
+			`users/${mailbox}/mailFolders/inbox/messageRules/${rule.id}`,
 			{
 				sequence: sequence,
 			},
@@ -104,6 +115,7 @@ export async function handleEditRuleSequence(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -114,6 +126,7 @@ export async function handleEditRuleSequence(
 					text: `Error updating rule sequence: ${(error as Error).message}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -125,12 +138,18 @@ export const rulesTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				includeDetails: {
 					type: "boolean",
 					description: "Include detailed rule conditions and actions",
 				},
 			},
-			required: [],
+			required: ["mailbox"],
+			additionalProperties: false,
 		},
 		handler: handleListRules as unknown as (
 			args: Record<string, unknown>,
@@ -142,6 +161,11 @@ export const rulesTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				name: {
 					type: "string",
 					description: "Name of the rule to create",
@@ -178,7 +202,8 @@ export const rulesTools: ToolDefinition[] = [
 						"Order in which the rule is executed (lower numbers run first, default: 100)",
 				},
 			},
-			required: ["name"],
+			required: ["mailbox", "name"],
+			additionalProperties: false,
 		},
 		handler: handleCreateRule as unknown as (
 			args: Record<string, unknown>,
@@ -190,6 +215,11 @@ export const rulesTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				ruleName: {
 					type: "string",
 					description: "Name of the rule to modify",
@@ -200,7 +230,8 @@ export const rulesTools: ToolDefinition[] = [
 						"New sequence value for the rule (lower numbers run first)",
 				},
 			},
-			required: ["ruleName", "sequence"],
+			required: ["mailbox", "ruleName", "sequence"],
+			additionalProperties: false,
 		},
 		handler: handleEditRuleSequence as unknown as (
 			args: Record<string, unknown>,

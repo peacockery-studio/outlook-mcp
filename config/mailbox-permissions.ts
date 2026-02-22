@@ -5,54 +5,6 @@
  * All other mailboxes are read-only
  */
 
-import { callGraphAPI } from "../utils/graph-api";
-
-/**
- * User profile response from Graph API
- */
-interface UserProfile {
-	mail?: string;
-	userPrincipalName?: string;
-}
-
-/**
- * Cache for the current user's email to avoid repeated API calls
- */
-let cachedUserEmail: string | null = null;
-
-/**
- * Get the current user's email address from the Graph API
- * Results are cached to avoid repeated API calls
- */
-export async function getCurrentUserEmail(
-	accessToken: string,
-): Promise<string> {
-	if (cachedUserEmail) {
-		return cachedUserEmail;
-	}
-
-	const profile = await callGraphAPI<UserProfile>(
-		accessToken,
-		"GET",
-		"me",
-		null,
-		{ $select: "mail,userPrincipalName" },
-	);
-
-	// Use mail if available, otherwise userPrincipalName
-	cachedUserEmail = profile.mail ?? profile.userPrincipalName ?? "";
-	return cachedUserEmail;
-}
-
-/**
- * Format allowed mailboxes for error messages
- */
-export function formatAllowedMailboxes(): string {
-	return MAILBOX_PERMISSIONS.canSend
-		.map((email) => `${email.split("@")[0]}@`)
-		.join(", ");
-}
-
 export interface MailboxPermissions {
 	/** Mailboxes that can send emails */
 	canSend: string[];
@@ -93,4 +45,13 @@ export function canModifyMailbox(mailbox: string): boolean {
 	return MAILBOX_PERMISSIONS.canModify.some(
 		(allowed) => allowed.toLowerCase() === mailbox.toLowerCase(),
 	);
+}
+
+/**
+ * Format allowed mailboxes for error messages
+ */
+export function formatAllowedMailboxes(): string {
+	return MAILBOX_PERMISSIONS.canSend
+		.map((email) => `${email.split("@")[0]}@`)
+		.join(", ");
 }

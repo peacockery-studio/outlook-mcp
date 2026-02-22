@@ -14,6 +14,11 @@ export const folderTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				includeItemCounts: {
 					type: "boolean",
 					description: "Include counts of total and unread items",
@@ -23,7 +28,8 @@ export const folderTools: ToolDefinition[] = [
 					description: "Include child folders in hierarchy",
 				},
 			},
-			required: [],
+			required: ["mailbox"],
+			additionalProperties: false,
 		},
 		handler: handleListFolders as (
 			args: Record<string, unknown>,
@@ -35,6 +41,11 @@ export const folderTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				name: {
 					type: "string",
 					description: "Name of the folder to create",
@@ -44,7 +55,8 @@ export const folderTools: ToolDefinition[] = [
 					description: "Optional parent folder name (default is root)",
 				},
 			},
-			required: ["name"],
+			required: ["mailbox", "name"],
+			additionalProperties: false,
 		},
 		handler: handleCreateFolder as unknown as (
 			args: Record<string, unknown>,
@@ -56,6 +68,11 @@ export const folderTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				emailIds: {
 					type: "string",
 					description: "Comma-separated list of email IDs to move",
@@ -69,7 +86,8 @@ export const folderTools: ToolDefinition[] = [
 					description: "Optional name of the source folder (default is inbox)",
 				},
 			},
-			required: ["emailIds", "targetFolder"],
+			required: ["mailbox", "emailIds", "targetFolder"],
+			additionalProperties: false,
 		},
 		handler: handleMoveEmails as unknown as (
 			args: Record<string, unknown>,

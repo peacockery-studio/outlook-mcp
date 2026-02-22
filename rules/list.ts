@@ -43,6 +43,7 @@ export interface InboxRule {
 
 export interface ListRulesArgs {
 	includeDetails?: boolean;
+	mailbox?: string;
 }
 
 /**
@@ -51,11 +52,19 @@ export interface ListRulesArgs {
 export async function handleListRules(
 	args: ListRulesArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const includeDetails = args.includeDetails === true;
 
 	try {
 		const accessToken = await ensureAuthenticated();
-		const rules = await getInboxRules(accessToken);
+		const rules = await getInboxRules(accessToken, mailbox);
 		const formattedRules = formatRulesList(rules, includeDetails);
 
 		return {
@@ -75,6 +84,7 @@ export async function handleListRules(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -85,6 +95,7 @@ export async function handleListRules(
 					text: `Error listing rules: ${(error as Error).message}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -92,7 +103,10 @@ export async function handleListRules(
 /**
  * Get all inbox rules
  */
-export async function getInboxRules(accessToken: string): Promise<InboxRule[]> {
+export async function getInboxRules(
+	accessToken: string,
+	mailbox: string,
+): Promise<InboxRule[]> {
 	try {
 		interface RulesListResponse {
 			value: InboxRule[];
@@ -101,7 +115,7 @@ export async function getInboxRules(accessToken: string): Promise<InboxRule[]> {
 		const response = await callGraphAPI<RulesListResponse>(
 			accessToken,
 			"GET",
-			"me/mailFolders/inbox/messageRules",
+			`users/${mailbox}/mailFolders/inbox/messageRules`,
 			null,
 		);
 

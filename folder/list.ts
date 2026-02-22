@@ -21,6 +21,7 @@ export interface MailFolder {
 export interface ListFoldersArgs {
 	includeItemCounts?: boolean;
 	includeChildren?: boolean;
+	mailbox?: string;
 }
 
 /**
@@ -29,6 +30,14 @@ export interface ListFoldersArgs {
 export async function handleListFolders(
 	args: ListFoldersArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const includeItemCounts = args.includeItemCounts === true;
 	const includeChildren = args.includeChildren === true;
 
@@ -36,6 +45,7 @@ export async function handleListFolders(
 		const accessToken = await ensureAuthenticated();
 		const folders = await getAllFoldersHierarchy(
 			accessToken,
+			mailbox,
 			includeItemCounts,
 		);
 
@@ -66,6 +76,7 @@ export async function handleListFolders(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -76,6 +87,7 @@ export async function handleListFolders(
 					text: `Error listing folders: ${(error as Error).message}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -85,6 +97,7 @@ export async function handleListFolders(
  */
 async function getAllFoldersHierarchy(
 	accessToken: string,
+	mailbox: string,
 	includeItemCounts: boolean,
 ): Promise<MailFolder[]> {
 	try {
@@ -99,7 +112,7 @@ async function getAllFoldersHierarchy(
 		const response = await callGraphAPI<FolderListResponse>(
 			accessToken,
 			"GET",
-			"me/mailFolders",
+			`users/${mailbox}/mailFolders`,
 			null,
 			{
 				$top: 100,
@@ -121,7 +134,7 @@ async function getAllFoldersHierarchy(
 					const childResponse = await callGraphAPI<FolderListResponse>(
 						accessToken,
 						"GET",
-						`me/mailFolders/${folder.id}/childFolders`,
+						`users/${mailbox}/mailFolders/${folder.id}/childFolders`,
 						null,
 						{ $select: selectFields },
 					);

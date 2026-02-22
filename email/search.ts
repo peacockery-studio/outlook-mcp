@@ -20,6 +20,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -34,6 +35,7 @@ interface SearchEmailsArgs {
 	hasAttachments?: boolean;
 	unreadOnly?: boolean;
 	count?: number;
+	mailbox?: string;
 }
 
 /**
@@ -61,7 +63,7 @@ interface QueryParams {
 	[key: string]: string | number | boolean | undefined;
 	$top: number;
 	$select: string;
-	$orderby: string;
+	$orderby?: string;
 	$search?: string;
 	$filter?: string;
 }
@@ -112,6 +114,14 @@ interface GraphSearchResponse {
 export async function handleSearchEmails(
 	args: SearchEmailsArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const folder = args.folder ?? "inbox";
 	const requestedCount = args.count ?? 10;
 	const query = args.query ?? "";
@@ -126,7 +136,7 @@ export async function handleSearchEmails(
 		const accessToken = await ensureAuthenticated();
 
 		// Resolve the folder path
-		const endpoint = await resolveFolderPath(accessToken, folder);
+		const endpoint = await resolveFolderPath(accessToken, folder, mailbox);
 		console.error(`Using endpoint: ${endpoint} for folder: ${folder}`);
 
 		// Execute progressive search with pagination
@@ -151,6 +161,7 @@ export async function handleSearchEmails(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -162,6 +173,7 @@ export async function handleSearchEmails(
 					text: `Error searching emails: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -230,10 +242,10 @@ async function progressiveSearch(
 				searchAttempts.push(`single-term-${term}`);
 
 				// For single term search, only use $search with that term
+				// $search and $orderby cannot be combined on mail endpoints
 				const simplifiedParams: QueryParams = {
 					$top: Math.min(50, maxCount),
 					$select: config.EMAIL_SELECT_FIELDS,
-					$orderby: "receivedDateTime desc",
 				};
 
 				// Add the search term in the appropriate KQL syntax
@@ -245,8 +257,7 @@ async function progressiveSearch(
 					simplifiedParams.$search = `${term}:"${searchTerms[term]}"`;
 				}
 
-				// Add boolean filters if applicable
-				addBooleanFilters(simplifiedParams, filterTerms);
+				// Do NOT add boolean filters when $search is active ($search + $filter not allowed on mail)
 
 				const response = (await callGraphAPIPaginated(
 					accessToken,
@@ -349,7 +360,6 @@ function buildSearchParams(
 	const params: QueryParams = {
 		$top: count,
 		$select: config.EMAIL_SELECT_FIELDS,
-		$orderby: "receivedDateTime desc",
 	};
 
 	// Handle search terms
@@ -373,12 +383,18 @@ function buildSearchParams(
 	}
 
 	// Add $search if we have any search terms
+	// $search and $orderby cannot be combined on mail endpoints
 	if (kqlTerms.length > 0) {
 		params.$search = kqlTerms.join(" ");
+	} else {
+		// Only set $orderby when NOT using $search
+		params.$orderby = "receivedDateTime desc";
 	}
 
-	// Add boolean filters
-	addBooleanFilters(params, filterTerms);
+	// Only add $filter if we're NOT using $search (cannot combine them for mail)
+	if (!params.$search) {
+		addBooleanFilters(params, filterTerms);
+	}
 
 	return params;
 }

@@ -12,6 +12,14 @@ import type { AcceptEventArgs, MCPResponse } from "./types";
  * @returns MCP response
  */
 async function handleAcceptEvent(args: AcceptEventArgs): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const { eventId, comment } = args;
 
 	if (!eventId) {
@@ -22,6 +30,7 @@ async function handleAcceptEvent(args: AcceptEventArgs): Promise<MCPResponse> {
 					text: "Event ID is required to accept an event.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -30,7 +39,7 @@ async function handleAcceptEvent(args: AcceptEventArgs): Promise<MCPResponse> {
 		const accessToken = await ensureAuthenticated();
 
 		// Build API endpoint
-		const endpoint = `me/events/${eventId}/accept`;
+		const endpoint = `users/${mailbox}/events/${eventId}/accept`;
 
 		// Request body
 		const body = {
@@ -60,6 +69,7 @@ async function handleAcceptEvent(args: AcceptEventArgs): Promise<MCPResponse> {
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -70,6 +80,7 @@ async function handleAcceptEvent(args: AcceptEventArgs): Promise<MCPResponse> {
 					text: `Error accepting event: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

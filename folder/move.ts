@@ -7,7 +7,6 @@ import type { MCPResponse } from "../auth/tools.js";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions.js";
 import { getFolderIdByName } from "../email/folder-utils.js";
 import { callGraphAPI } from "../utils/graph-api.js";
@@ -16,6 +15,7 @@ export interface MoveEmailsArgs {
 	emailIds: string;
 	targetFolder: string;
 	sourceFolder?: string;
+	mailbox?: string;
 }
 
 export interface MoveEmailsResult {
@@ -33,6 +33,14 @@ export interface MoveEmailsResult {
 export async function handleMoveEmails(
 	args: MoveEmailsArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const emailIds = args.emailIds || "";
 	const targetFolder = args.targetFolder || "";
 	const sourceFolder = args.sourceFolder || "";
@@ -59,43 +67,43 @@ export async function handleMoveEmails(
 		};
 	}
 
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Moving emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+		};
+	}
+
+	const ids = emailIds
+		.split(",")
+		.map((id) => id.trim())
+		.filter((id) => id);
+
+	if (ids.length === 0) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: "No valid email IDs provided.",
+				},
+			],
+		};
+	}
+
 	try {
 		const accessToken = await ensureAuthenticated();
-
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Moving emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
-		const ids = emailIds
-			.split(",")
-			.map((id) => id.trim())
-			.filter((id) => id);
-
-		if (ids.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "No valid email IDs provided.",
-					},
-				],
-			};
-		}
 
 		const result = await moveEmailsToFolder(
 			accessToken,
 			ids,
 			targetFolder,
 			sourceFolder,
+			mailbox,
 		);
 
 		return {
@@ -137,11 +145,13 @@ async function moveEmailsToFolder(
 	emailIds: string[],
 	targetFolderName: string,
 	_sourceFolderName: string,
+	mailbox: string,
 ): Promise<MoveEmailsResult> {
 	try {
 		const targetFolderId = await getFolderIdByName(
 			accessToken,
 			targetFolderName,
+			mailbox,
 		);
 		if (!targetFolderId) {
 			return {
@@ -160,9 +170,14 @@ async function moveEmailsToFolder(
 
 		for (const emailId of emailIds) {
 			try {
-				await callGraphAPI(accessToken, "POST", `me/messages/${emailId}/move`, {
-					destinationId: targetFolderId,
-				});
+				await callGraphAPI(
+					accessToken,
+					"POST",
+					`users/${mailbox}/messages/${emailId}/move`,
+					{
+						destinationId: targetFolderId,
+					},
+				);
 
 				results.successful.push(emailId);
 			} catch (error) {

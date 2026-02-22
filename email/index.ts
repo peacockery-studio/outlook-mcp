@@ -18,24 +18,11 @@ import { handleReadEmail } from "./read";
 import { handleSearchEmails } from "./search";
 import { handleSendEmail } from "./send";
 
-/**
- * MCP response content item
- */
-interface MCPContentItem {
-	type: "text";
-	text: string;
-}
-
-/**
- * MCP response structure
- */
 interface MCPResponse {
-	content: MCPContentItem[];
+	content: Array<{ type: "text"; text: string }>;
+	isError?: boolean;
 }
 
-/**
- * Tool definition structure
- */
 interface ToolDefinition {
 	name: string;
 	description: string;
@@ -51,6 +38,7 @@ interface ToolDefinition {
 			}
 		>;
 		required: string[];
+		additionalProperties?: boolean;
 	};
 	handler: (args: Record<string, unknown>) => Promise<MCPResponse>;
 }
@@ -63,6 +51,11 @@ export const emailTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				folder: {
 					type: "string",
 					description:
@@ -73,7 +66,8 @@ export const emailTools: ToolDefinition[] = [
 					description: "Number of emails to retrieve (default: 10, max: 50)",
 				},
 			},
-			required: [],
+			required: ["mailbox"],
+			additionalProperties: false,
 		},
 		handler: handleListEmails as (
 			args: Record<string, unknown>,
@@ -85,6 +79,11 @@ export const emailTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				query: {
 					type: "string",
 					description: "Search query text to find in emails",
@@ -118,7 +117,8 @@ export const emailTools: ToolDefinition[] = [
 					description: "Number of results to return (default: 10, max: 50)",
 				},
 			},
-			required: [],
+			required: ["mailbox"],
+			additionalProperties: false,
 		},
 		handler: handleSearchEmails as (
 			args: Record<string, unknown>,
@@ -130,12 +130,18 @@ export const emailTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				id: {
 					type: "string",
 					description: "ID of the email to read",
 				},
 			},
-			required: ["id"],
+			required: ["mailbox", "id"],
+			additionalProperties: false,
 		},
 		handler: handleReadEmail as (
 			args: Record<string, unknown>,
@@ -147,6 +153,11 @@ export const emailTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to send from (e.g., 'chi@desertservices.net')",
+				},
 				to: {
 					type: "string",
 					description: "Comma-separated list of recipient email addresses",
@@ -177,7 +188,8 @@ export const emailTools: ToolDefinition[] = [
 					description: "Whether to save the email to sent items",
 				},
 			},
-			required: ["to", "subject", "body"],
+			required: ["mailbox", "to", "subject", "body"],
+			additionalProperties: false,
 		},
 		handler: handleSendEmail as (
 			args: Record<string, unknown>,
@@ -189,6 +201,11 @@ export const emailTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				id: {
 					type: "string",
 					description: "ID of the email to mark as read/unread",
@@ -199,7 +216,8 @@ export const emailTools: ToolDefinition[] = [
 						"Whether to mark as read (true) or unread (false). Default: true",
 				},
 			},
-			required: ["id"],
+			required: ["mailbox", "id"],
+			additionalProperties: false,
 		},
 		handler: handleMarkAsRead as (
 			args: Record<string, unknown>,

@@ -20,6 +20,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ interface MCPResponse {
 interface ListEmailsArgs {
 	folder?: string;
 	count?: number;
+	mailbox?: string;
 }
 
 /**
@@ -72,6 +74,14 @@ interface GraphPaginatedResponse {
 export async function handleListEmails(
 	args: ListEmailsArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const folder = args.folder ?? "inbox";
 	const requestedCount = args.count ?? 10;
 
@@ -80,7 +90,7 @@ export async function handleListEmails(
 		const accessToken = await ensureAuthenticated();
 
 		// Resolve the folder path
-		const endpoint = await resolveFolderPath(accessToken, folder);
+		const endpoint = await resolveFolderPath(accessToken, folder, mailbox);
 
 		// Add query parameters
 		const queryParams = {
@@ -141,6 +151,7 @@ export async function handleListEmails(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -151,6 +162,7 @@ export async function handleListEmails(
 					text: `Error listing emails: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

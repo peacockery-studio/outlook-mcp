@@ -6,7 +6,6 @@ import { ensureAuthenticated } from "../auth";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 
@@ -23,6 +22,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -31,6 +31,7 @@ interface MCPResponse {
 interface MarkAsReadArgs {
 	id?: string;
 	isRead?: boolean;
+	mailbox?: string;
 }
 
 /**
@@ -41,6 +42,14 @@ interface MarkAsReadArgs {
 export async function handleMarkAsRead(
 	args: MarkAsReadArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const emailId = args.id;
 	const isRead = args.isRead !== undefined ? args.isRead : true; // Default to true
 
@@ -52,6 +61,20 @@ export async function handleMarkAsRead(
 					text: "Email ID is required.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Modifying emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
@@ -59,21 +82,9 @@ export async function handleMarkAsRead(
 		// Get access token
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Modifying emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
 		// Make API call to update email read status
-		const endpoint = `me/messages/${encodeURIComponent(emailId)}`;
+		// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
+		const endpoint = `users/${mailbox}/messages/${emailId}`;
 		const updateData = {
 			isRead: isRead,
 		};
@@ -107,6 +118,7 @@ export async function handleMarkAsRead(
 							text: "The email ID seems invalid or doesn't belong to your mailbox. Please try with a different email ID.",
 						},
 					],
+					isError: true,
 				};
 			}
 			if (errorMessage.includes("UNAUTHORIZED")) {
@@ -117,6 +129,7 @@ export async function handleMarkAsRead(
 							text: "Authentication failed. Please re-authenticate and try again.",
 						},
 					],
+					isError: true,
 				};
 			}
 			return {
@@ -126,6 +139,7 @@ export async function handleMarkAsRead(
 						text: `Failed to mark email as ${isRead ? "read" : "unread"}: ${errorMessage}`,
 					},
 				],
+				isError: true,
 			};
 		}
 	} catch (error) {
@@ -139,6 +153,7 @@ export async function handleMarkAsRead(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -149,6 +164,7 @@ export async function handleMarkAsRead(
 					text: `Error accessing email: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

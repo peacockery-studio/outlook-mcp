@@ -7,6 +7,12 @@
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+	CallToolRequestSchema,
+	ErrorCode,
+	ListToolsRequestSchema,
+	McpError,
+} from "@modelcontextprotocol/sdk/types.js";
 // Import module tools
 import { authTools } from "./auth";
 import { calendarTools } from "./calendar";
@@ -14,14 +20,7 @@ import config from "./config";
 import { emailTools } from "./email";
 import { folderTools } from "./folder";
 import { rulesTools } from "./rules";
-import type {
-	InitializeResponse,
-	McpError,
-	McpRequest,
-	Tool,
-	ToolResponse,
-	ToolsListResponse,
-} from "./types";
+import type { Tool } from "./types";
 
 // Log startup information
 console.error(`STARTING ${config.SERVER_NAME.toUpperCase()} MCP SERVER`);
@@ -34,138 +33,48 @@ const TOOLS = [
 	...emailTools,
 	...folderTools,
 	...rulesTools,
-	// Future modules: contactsTools, etc.
 ] as Tool[];
 
-// Create server with tools capabilities
+// Create server
 const server = new Server(
 	{ name: config.SERVER_NAME, version: config.SERVER_VERSION },
-	{
-		capabilities: {
-			tools: TOOLS.reduce(
-				(acc, tool) => {
-					acc[tool.name] = {};
-					return acc;
-				},
-				{} as Record<string, object>,
-			),
-		},
-	},
+	{ capabilities: { tools: {} } },
 );
 
-// Handle all requests
-server.fallbackRequestHandler = (async (
-	request: McpRequest,
-): Promise<
-	| InitializeResponse
-	| ToolsListResponse
-	| ToolResponse
-	| McpError
-	| { resources: [] }
-	| { prompts: [] }
-> => {
-	try {
-		const { method, params, id } = request;
-		console.error(`REQUEST: ${method} [${id}]`);
+// List tools handler
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+	console.error(`TOOLS LIST: ${TOOLS.length} tools`);
+	return {
+		tools: TOOLS.map((tool) => ({
+			name: tool.name,
+			description: tool.description,
+			inputSchema: tool.inputSchema,
+		})),
+	};
+});
 
-		// Initialize handler
-		if (method === "initialize") {
-			console.error(`INITIALIZE REQUEST: ID [${id}]`);
-			return {
-				protocolVersion: "2024-11-05",
-				capabilities: {
-					tools: TOOLS.reduce(
-						(acc, tool) => {
-							acc[tool.name] = {};
-							return acc;
-						},
-						{} as Record<string, object>,
-					),
-				},
-				serverInfo: {
-					name: config.SERVER_NAME,
-					version: config.SERVER_VERSION,
-				},
-			};
-		}
+// Tool call handler
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+	const { name, arguments: args = {} } = request.params;
+	console.error(`TOOL CALL: ${name}`);
 
-		// Tools list handler
-		if (method === "tools/list") {
-			console.error(`TOOLS LIST REQUEST: ID [${id}]`);
-			console.error(`TOOLS COUNT: ${TOOLS.length}`);
-			console.error(`TOOLS NAMES: ${TOOLS.map((t) => t.name).join(", ")}`);
-
-			return {
-				tools: TOOLS.map((tool) => ({
-					name: tool.name,
-					description: tool.description,
-					inputSchema: tool.inputSchema,
-				})),
-			};
-		}
-
-		// Required empty responses for other capabilities
-		if (method === "resources/list") {
-			return { resources: [] };
-		}
-		if (method === "prompts/list") {
-			return { prompts: [] };
-		}
-
-		// Tool call handler
-		if (method === "tools/call") {
-			try {
-				const { name, arguments: args = {} } = params ?? {};
-
-				console.error(`TOOL CALL: ${name}`);
-
-				// Find the tool handler
-				const tool = TOOLS.find((t) => t.name === name);
-
-				if (tool?.handler) {
-					return await tool.handler((args ?? {}) as Record<string, unknown>);
-				}
-
-				// Tool not found
-				return {
-					error: {
-						code: -32601,
-						message: `Tool not found: ${name}`,
-					},
-				};
-			} catch (error) {
-				const toolError = error as Error;
-				console.error("Error in tools/call:", toolError);
-				return {
-					error: {
-						code: -32603,
-						message: `Error processing tool call: ${toolError.message}`,
-					},
-				};
-			}
-		}
-
-		// For any other method, return method not found
-		return {
-			error: {
-				code: -32601,
-				message: `Method not found: ${method}`,
-			},
-		};
-	} catch (error) {
-		const requestError = error as Error;
-		console.error("Error in fallbackRequestHandler:", requestError);
-		return {
-			error: {
-				code: -32603,
-				message: `Error processing request: ${requestError.message}`,
-			},
-		};
+	const tool = TOOLS.find((t) => t.name === name);
+	if (!tool?.handler) {
+		throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
 	}
-	// biome-ignore lint/suspicious/noExplicitAny: SDK fallbackRequestHandler has complex type signature
-}) as any;
 
-// Make the script executable
+	try {
+		// biome-ignore lint/suspicious/noExplicitAny: SDK CallToolResult type compatibility
+		return (await tool.handler((args ?? {}) as Record<string, unknown>)) as any;
+	} catch (error) {
+		throw new McpError(
+			ErrorCode.InternalError,
+			error instanceof Error ? error.message : String(error),
+		);
+	}
+});
+
+// Stay alive on SIGTERM
 process.on("SIGTERM", () => {
 	console.error("SIGTERM received but staying alive");
 });

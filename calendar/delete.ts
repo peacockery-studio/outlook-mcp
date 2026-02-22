@@ -6,7 +6,6 @@ import { ensureAuthenticated } from "../auth";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 import type { DeleteEventArgs, MCPResponse } from "./types";
@@ -17,6 +16,14 @@ import type { DeleteEventArgs, MCPResponse } from "./types";
  * @returns MCP response
  */
 async function handleDeleteEvent(args: DeleteEventArgs): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const { eventId } = args;
 
 	if (!eventId) {
@@ -27,6 +34,20 @@ async function handleDeleteEvent(args: DeleteEventArgs): Promise<MCPResponse> {
 					text: "Event ID is required to delete an event.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Deleting events is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
@@ -34,21 +55,8 @@ async function handleDeleteEvent(args: DeleteEventArgs): Promise<MCPResponse> {
 		// Get access token
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Deleting events is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
 		// Build API endpoint
-		const endpoint = `me/events/${eventId}`;
+		const endpoint = `users/${mailbox}/events/${eventId}`;
 
 		// Make API call
 		await callGraphAPI(accessToken, "DELETE", endpoint);
@@ -73,6 +81,7 @@ async function handleDeleteEvent(args: DeleteEventArgs): Promise<MCPResponse> {
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -83,6 +92,7 @@ async function handleDeleteEvent(args: DeleteEventArgs): Promise<MCPResponse> {
 					text: `Error deleting event: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

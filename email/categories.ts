@@ -8,7 +8,6 @@ import { ensureAuthenticated } from "../auth";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 
@@ -25,6 +24,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -46,9 +46,12 @@ interface MasterCategoriesResponse {
 }
 
 /**
- * Arguments for get master categories handler (no arguments required)
+ * Arguments for get master categories handler
  */
-type GetMasterCategoriesArgs = Record<string, unknown>;
+interface GetMasterCategoriesArgs {
+	mailbox?: string;
+	[key: string]: unknown;
+}
 
 /**
  * Arguments for set email categories handler
@@ -56,6 +59,7 @@ type GetMasterCategoriesArgs = Record<string, unknown>;
 interface SetEmailCategoriesArgs {
 	id?: string;
 	categories?: string[];
+	mailbox?: string;
 }
 
 /**
@@ -75,6 +79,7 @@ interface ToolDefinition {
 			}
 		>;
 		required: string[];
+		additionalProperties?: boolean;
 	};
 	handler: (args: Record<string, unknown>) => Promise<MCPResponse>;
 }
@@ -85,18 +90,26 @@ interface ToolDefinition {
  * Retrieves the list of available categories (color-coded labels) for the mailbox.
  * These are the categories that can be applied to emails.
  *
- * @param _args - Tool arguments (none required)
+ * @param args - Tool arguments
  * @returns MCP response with list of categories
  */
 export async function handleGetMasterCategories(
-	_args: GetMasterCategoriesArgs,
+	args: GetMasterCategoriesArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	try {
 		// Get access token
 		const accessToken = await ensureAuthenticated();
 
 		// Make API call to get master categories
-		const endpoint = "me/outlook/masterCategories";
+		const endpoint = `users/${mailbox}/outlook/masterCategories`;
 
 		const response = (await callGraphAPI(
 			accessToken,
@@ -145,6 +158,7 @@ export async function handleGetMasterCategories(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -155,6 +169,7 @@ export async function handleGetMasterCategories(
 					text: `Error getting categories: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -172,6 +187,14 @@ export async function handleGetMasterCategories(
 export async function handleSetEmailCategories(
 	args: SetEmailCategoriesArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const emailId = args.id;
 	const categories = args.categories ?? [];
 
@@ -183,6 +206,20 @@ export async function handleSetEmailCategories(
 					text: "Email ID is required.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Modifying emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
@@ -190,21 +227,9 @@ export async function handleSetEmailCategories(
 		// Get access token
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Modifying emails is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
 		// Make API call to update email categories
-		const endpoint = `me/messages/${encodeURIComponent(emailId)}`;
+		// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
+		const endpoint = `users/${mailbox}/messages/${emailId}`;
 		const updateData = {
 			categories: categories,
 		};
@@ -239,6 +264,7 @@ export async function handleSetEmailCategories(
 							text: "The email ID seems invalid or doesn't belong to your mailbox. Please try with a different email ID.",
 						},
 					],
+					isError: true,
 				};
 			}
 			if (errorMessage.includes("UNAUTHORIZED")) {
@@ -249,6 +275,7 @@ export async function handleSetEmailCategories(
 							text: "Authentication failed. Please re-authenticate and try again.",
 						},
 					],
+					isError: true,
 				};
 			}
 			if (
@@ -262,6 +289,7 @@ export async function handleSetEmailCategories(
 							text: `One or more categories may not exist in your mailbox. Please use 'get-master-categories' to see available categories.\n\nError: ${errorMessage}`,
 						},
 					],
+					isError: true,
 				};
 			}
 			return {
@@ -271,6 +299,7 @@ export async function handleSetEmailCategories(
 						text: `Failed to set email categories: ${errorMessage}`,
 					},
 				],
+				isError: true,
 			};
 		}
 	} catch (error) {
@@ -284,6 +313,7 @@ export async function handleSetEmailCategories(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -294,6 +324,7 @@ export async function handleSetEmailCategories(
 					text: `Error accessing email: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -308,8 +339,15 @@ export const categoriesTools: ToolDefinition[] = [
 			"Gets the list of available categories (color-coded labels) for your mailbox. Use this to see what categories can be applied to emails.",
 		inputSchema: {
 			type: "object",
-			properties: {},
-			required: [],
+			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
+			},
+			required: ["mailbox"],
+			additionalProperties: false,
 		},
 		handler: handleGetMasterCategories,
 	},
@@ -320,6 +358,11 @@ export const categoriesTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				id: {
 					type: "string",
 					description: "ID of the email to set categories on",
@@ -331,7 +374,8 @@ export const categoriesTools: ToolDefinition[] = [
 					items: { type: "string" },
 				},
 			},
-			required: ["id"],
+			required: ["mailbox", "id"],
+			additionalProperties: false,
 		},
 		handler: handleSetEmailCategories as (
 			args: Record<string, unknown>,

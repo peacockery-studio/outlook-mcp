@@ -7,7 +7,6 @@ import type { MCPResponse } from "../auth/tools.js";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions.js";
 import { getFolderIdByName } from "../email/folder-utils.js";
 import { callGraphAPI } from "../utils/graph-api.js";
@@ -15,6 +14,7 @@ import { callGraphAPI } from "../utils/graph-api.js";
 export interface CreateFolderArgs {
 	name: string;
 	parentFolder?: string;
+	mailbox?: string;
 }
 
 export interface CreateFolderResult {
@@ -29,6 +29,14 @@ export interface CreateFolderResult {
 export async function handleCreateFolder(
 	args: CreateFolderArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const folderName = args.name;
 	const parentFolder = args.parentFolder || "";
 
@@ -40,29 +48,31 @@ export async function handleCreateFolder(
 					text: "Folder name is required.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Creating folders is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
 	try {
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Creating folders is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
 		const result = await createMailFolder(
 			accessToken,
 			folderName,
 			parentFolder,
+			mailbox,
 		);
 
 		return {
@@ -82,6 +92,7 @@ export async function handleCreateFolder(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -92,6 +103,7 @@ export async function handleCreateFolder(
 					text: `Error creating folder: ${(error as Error).message}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -103,9 +115,14 @@ async function createMailFolder(
 	accessToken: string,
 	folderName: string,
 	parentFolderName: string,
+	mailbox: string,
 ): Promise<CreateFolderResult> {
 	try {
-		const existingFolder = await getFolderIdByName(accessToken, folderName);
+		const existingFolder = await getFolderIdByName(
+			accessToken,
+			folderName,
+			mailbox,
+		);
 		if (existingFolder) {
 			return {
 				success: false,
@@ -113,9 +130,13 @@ async function createMailFolder(
 			};
 		}
 
-		let endpoint = "me/mailFolders";
+		let endpoint = `users/${mailbox}/mailFolders`;
 		if (parentFolderName) {
-			const parentId = await getFolderIdByName(accessToken, parentFolderName);
+			const parentId = await getFolderIdByName(
+				accessToken,
+				parentFolderName,
+				mailbox,
+			);
 			if (!parentId) {
 				return {
 					success: false,
@@ -123,7 +144,7 @@ async function createMailFolder(
 				};
 			}
 
-			endpoint = `me/mailFolders/${parentId}/childFolders`;
+			endpoint = `users/${mailbox}/mailFolders/${parentId}/childFolders`;
 		}
 
 		const folderData = {

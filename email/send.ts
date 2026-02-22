@@ -6,7 +6,6 @@ import { ensureAuthenticated } from "../auth";
 import {
 	canSendFrom,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 
@@ -23,6 +22,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -36,6 +36,7 @@ interface SendEmailArgs {
 	body?: string;
 	importance?: "normal" | "high" | "low";
 	saveToSentItems?: boolean;
+	mailbox?: string;
 }
 
 /**
@@ -73,6 +74,14 @@ interface GraphEmailObject {
 export async function handleSendEmail(
 	args: SendEmailArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const {
 		to,
 		cc,
@@ -92,6 +101,7 @@ export async function handleSendEmail(
 					text: "Recipient (to) is required.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -103,6 +113,7 @@ export async function handleSendEmail(
 					text: "Subject is required.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -114,25 +125,26 @@ export async function handleSendEmail(
 					text: "Body content is required.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to send
+	if (!canSendFrom(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Sending is not allowed from ${mailbox}. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
 	try {
 		// Get access token
 		const accessToken = await ensureAuthenticated();
-
-		// Check if the current mailbox has permission to send
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canSendFrom(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Sending is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
 
 		// Format recipients
 		const toRecipients: GraphRecipient[] = to.split(",").map((email) => {
@@ -183,7 +195,12 @@ export async function handleSendEmail(
 		};
 
 		// Make API call to send email
-		await callGraphAPI(accessToken, "POST", "me/sendMail", emailObject);
+		await callGraphAPI(
+			accessToken,
+			"POST",
+			`users/${mailbox}/sendMail`,
+			emailObject,
+		);
 
 		return {
 			content: [
@@ -204,6 +221,7 @@ export async function handleSendEmail(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -214,6 +232,7 @@ export async function handleSendEmail(
 					text: `Error sending email: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

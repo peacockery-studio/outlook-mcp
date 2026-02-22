@@ -18,20 +18,31 @@ import type {
  * @returns MCP response
  */
 async function handleListEvents(args: ListEventsArgs): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const count = Math.min(args.count ?? 10, config.MAX_RESULT_COUNT);
 
 	try {
 		// Get access token
 		const accessToken = await ensureAuthenticated();
 
-		// Build API endpoint
-		const endpoint = "me/events";
+		// Use calendarView with a 30-day window — supports $orderby without $filter
+		const endpoint = `users/${mailbox}/calendarView`;
+		const now = new Date();
+		const endDate = new Date(now);
+		endDate.setDate(endDate.getDate() + 30);
 
-		// Add query parameters
 		const queryParams = {
+			startDateTime: now.toISOString(),
+			endDateTime: endDate.toISOString(),
 			$top: count,
 			$orderby: "start/dateTime",
-			$filter: `start/dateTime ge '${new Date().toISOString()}'`,
 			$select: config.CALENDAR_SELECT_FIELDS,
 		};
 
@@ -58,12 +69,14 @@ async function handleListEvents(args: ListEventsArgs): Promise<MCPResponse> {
 		// Format results
 		const eventList = response.value
 			.map((event: CalendarEvent, index: number) => {
-				const startDate = new Date(event.start.dateTime).toLocaleString(
-					event.start.timeZone,
-				);
-				const endDate = new Date(event.end.dateTime).toLocaleString(
-					event.end.timeZone,
-				);
+				// event.start.timeZone is a timezone name, not a locale — parse as UTC
+				const startDate = new Date(
+					event.start.dateTime +
+						(event.start.dateTime.endsWith("Z") ? "" : "Z"),
+				).toLocaleString();
+				const endDate = new Date(
+					event.end.dateTime + (event.end.dateTime.endsWith("Z") ? "" : "Z"),
+				).toLocaleString();
 				const location = event.location.displayName ?? "No location";
 
 				return `${index + 1}. ${event.subject} - Location: ${location}\nStart: ${startDate}\nEnd: ${endDate}\nSubject: ${event.subject}\nSummary: ${event.bodyPreview}\nID: ${event.id}\n`;

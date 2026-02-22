@@ -15,6 +15,7 @@ export interface MCPContentItem {
  */
 export interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -96,6 +97,7 @@ export interface EventsListResponse {
  */
 export interface ListEventsArgs {
 	count?: number;
+	mailbox?: string;
 }
 
 /**
@@ -107,6 +109,7 @@ export interface CreateEventArgs {
 	end: string | DateTimeTimeZone;
 	attendees?: string[];
 	body?: string;
+	mailbox?: string;
 }
 
 /**
@@ -115,6 +118,7 @@ export interface CreateEventArgs {
 export interface AcceptEventArgs {
 	eventId: string;
 	comment?: string;
+	mailbox?: string;
 }
 
 /**
@@ -123,6 +127,7 @@ export interface AcceptEventArgs {
 export interface DeclineEventArgs {
 	eventId: string;
 	comment?: string;
+	mailbox?: string;
 }
 
 /**
@@ -131,6 +136,7 @@ export interface DeclineEventArgs {
 export interface CancelEventArgs {
 	eventId: string;
 	comment?: string;
+	mailbox?: string;
 }
 
 /**
@@ -138,6 +144,7 @@ export interface CancelEventArgs {
  */
 export interface DeleteEventArgs {
 	eventId: string;
+	mailbox?: string;
 }
 
 /**
@@ -158,6 +165,7 @@ export interface ToolInputSchema {
 	type: "object";
 	properties: Record<string, ToolInputSchemaProperty>;
 	required: string[];
+	additionalProperties?: boolean;
 }
 
 /**

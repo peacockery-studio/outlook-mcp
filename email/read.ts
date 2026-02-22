@@ -19,6 +19,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ interface MCPResponse {
  */
 interface ReadEmailArgs {
 	id?: string;
+	mailbox?: string;
 }
 
 /**
@@ -77,6 +79,14 @@ interface GraphEmailDetail {
 export async function handleReadEmail(
 	args: ReadEmailArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const emailId = args.id;
 
 	if (!emailId) {
@@ -87,6 +97,7 @@ export async function handleReadEmail(
 					text: "Email ID is required.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -95,7 +106,8 @@ export async function handleReadEmail(
 		const accessToken = await ensureAuthenticated();
 
 		// Make API call to get email details
-		const endpoint = `me/messages/${encodeURIComponent(emailId)}`;
+		// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
+		const endpoint = `users/${mailbox}/messages/${emailId}`;
 		const queryParams = {
 			$select: config.EMAIL_DETAIL_FIELDS,
 		};
@@ -187,6 +199,7 @@ ${body}`;
 							text: "The email ID seems invalid or doesn't belong to your mailbox. Please try with a different email ID.",
 						},
 					],
+					isError: true,
 				};
 			}
 			return {
@@ -196,6 +209,7 @@ ${body}`;
 						text: `Failed to read email: ${errorMessage}`,
 					},
 				],
+				isError: true,
 			};
 		}
 	} catch (error) {
@@ -209,6 +223,7 @@ ${body}`;
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -219,6 +234,7 @@ ${body}`;
 					text: `Error accessing email: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

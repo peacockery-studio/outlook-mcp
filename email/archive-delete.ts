@@ -8,7 +8,6 @@ import { ensureAuthenticated } from "../auth";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 
@@ -25,6 +24,7 @@ interface MCPContentItem {
  */
 interface MCPResponse {
 	content: MCPContentItem[];
+	isError?: boolean;
 }
 
 /**
@@ -32,6 +32,7 @@ interface MCPResponse {
  */
 interface ArchiveEmailArgs {
 	id?: string;
+	mailbox?: string;
 }
 
 /**
@@ -40,6 +41,7 @@ interface ArchiveEmailArgs {
 interface DeleteEmailArgs {
 	id?: string;
 	permanent?: boolean;
+	mailbox?: string;
 }
 
 /**
@@ -58,6 +60,7 @@ interface ToolDefinition {
 			}
 		>;
 		required: string[];
+		additionalProperties?: boolean;
 	};
 	handler: (args: Record<string, unknown>) => Promise<MCPResponse>;
 }
@@ -73,6 +76,14 @@ interface ToolDefinition {
 export async function handleArchiveEmail(
 	args: ArchiveEmailArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const emailId = args.id;
 
 	if (!emailId) {
@@ -83,26 +94,28 @@ export async function handleArchiveEmail(
 					text: "Email ID is required.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Archiving is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
 	try {
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Archiving is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
-		const endpoint = `me/messages/${encodeURIComponent(emailId)}/move`;
+		// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
+		const endpoint = `users/${mailbox}/messages/${emailId}/move`;
 		const moveData = {
 			destinationId: "archive",
 		};
@@ -130,6 +143,7 @@ export async function handleArchiveEmail(
 							text: "The email ID seems invalid or doesn't belong to your mailbox. Please try with a different email ID.",
 						},
 					],
+					isError: true,
 				};
 			}
 			if (errorMessage.includes("UNAUTHORIZED")) {
@@ -140,6 +154,7 @@ export async function handleArchiveEmail(
 							text: "Authentication failed. Please re-authenticate and try again.",
 						},
 					],
+					isError: true,
 				};
 			}
 			return {
@@ -149,6 +164,7 @@ export async function handleArchiveEmail(
 						text: `Failed to archive email: ${errorMessage}`,
 					},
 				],
+				isError: true,
 			};
 		}
 	} catch (error) {
@@ -162,6 +178,7 @@ export async function handleArchiveEmail(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -172,6 +189,7 @@ export async function handleArchiveEmail(
 					text: `Error accessing email: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -189,6 +207,14 @@ export async function handleArchiveEmail(
 export async function handleDeleteEmail(
 	args: DeleteEmailArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const emailId = args.id;
 	const permanent = args.permanent ?? false;
 
@@ -200,29 +226,31 @@ export async function handleDeleteEmail(
 					text: "Email ID is required.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Deleting is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
 	try {
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Deleting is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
 		try {
 			if (permanent) {
 				// Permanent delete using DELETE method
-				const endpoint = `me/messages/${encodeURIComponent(emailId)}`;
+				// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
+				const endpoint = `users/${mailbox}/messages/${emailId}`;
 				await callGraphAPI(accessToken, "DELETE", endpoint);
 
 				return {
@@ -236,7 +264,8 @@ export async function handleDeleteEmail(
 			}
 
 			// Soft delete - move to Deleted Items folder
-			const endpoint = `me/messages/${encodeURIComponent(emailId)}/move`;
+			// graph-api.ts handles path segment encoding — do NOT pre-encode emailId
+			const endpoint = `users/${mailbox}/messages/${emailId}/move`;
 			const moveData = {
 				destinationId: "deleteditems",
 			};
@@ -262,6 +291,7 @@ export async function handleDeleteEmail(
 							text: "The email ID seems invalid or doesn't belong to your mailbox. Please try with a different email ID.",
 						},
 					],
+					isError: true,
 				};
 			}
 			if (errorMessage.includes("UNAUTHORIZED")) {
@@ -272,6 +302,7 @@ export async function handleDeleteEmail(
 							text: "Authentication failed. Please re-authenticate and try again.",
 						},
 					],
+					isError: true,
 				};
 			}
 			return {
@@ -281,6 +312,7 @@ export async function handleDeleteEmail(
 						text: `Failed to delete email: ${errorMessage}`,
 					},
 				],
+				isError: true,
 			};
 		}
 	} catch (error) {
@@ -294,6 +326,7 @@ export async function handleDeleteEmail(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -304,6 +337,7 @@ export async function handleDeleteEmail(
 					text: `Error accessing email: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -318,12 +352,18 @@ export const archiveDeleteTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				id: {
 					type: "string",
 					description: "ID of the email to archive",
 				},
 			},
-			required: ["id"],
+			required: ["mailbox", "id"],
+			additionalProperties: false,
 		},
 		handler: handleArchiveEmail as (
 			args: Record<string, unknown>,
@@ -336,6 +376,11 @@ export const archiveDeleteTools: ToolDefinition[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				id: {
 					type: "string",
 					description: "ID of the email to delete",
@@ -346,7 +391,8 @@ export const archiveDeleteTools: ToolDefinition[] = [
 						"If true, permanently deletes the email. If false (default), moves to Deleted Items.",
 				},
 			},
-			required: ["id"],
+			required: ["mailbox", "id"],
+			additionalProperties: false,
 		},
 		handler: handleDeleteEmail as (
 			args: Record<string, unknown>,

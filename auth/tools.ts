@@ -5,12 +5,13 @@ import config from "../config.js";
 import tokenManager from "./token-manager.js";
 
 export interface MCPContent {
-	type: string;
+	type: "text";
 	text: string;
 }
 
 export interface MCPResponse {
 	content: MCPContent[];
+	isError?: boolean;
 }
 
 export interface AuthenticateArgs {
@@ -24,6 +25,7 @@ export interface ToolDefinition {
 		type: string;
 		properties: Record<string, unknown>;
 		required: string[];
+		additionalProperties?: boolean;
 	};
 	handler: (args: Record<string, unknown>) => Promise<MCPResponse>;
 }
@@ -81,6 +83,7 @@ export async function handleAuthenticate(
 					text: "Authentication failed. Check MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET in .env",
 				},
 			],
+			isError: true,
 		};
 	} catch (error) {
 		return {
@@ -90,6 +93,7 @@ export async function handleAuthenticate(
 					text: `Authentication failed: ${error instanceof Error ? error.message : String(error)}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -128,6 +132,7 @@ export const authTools: ToolDefinition[] = [
 			type: "object",
 			properties: {},
 			required: [],
+			additionalProperties: false,
 		},
 		handler: handleAbout,
 	},
@@ -143,6 +148,7 @@ export const authTools: ToolDefinition[] = [
 				},
 			},
 			required: [],
+			additionalProperties: false,
 		},
 		handler: handleAuthenticate as (
 			args: Record<string, unknown>,
@@ -156,6 +162,7 @@ export const authTools: ToolDefinition[] = [
 			type: "object",
 			properties: {},
 			required: [],
+			additionalProperties: false,
 		},
 		handler: handleCheckAuthStatus,
 	},

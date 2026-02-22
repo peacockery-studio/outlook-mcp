@@ -23,44 +23,50 @@ interface MailFolder {
 }
 
 /**
- * Well-known folder names and their endpoints
+ * Well-known folder names and their endpoints, scoped to a mailbox
  */
-export const WELL_KNOWN_FOLDERS: Record<string, string> = {
-	inbox: "me/mailFolders/inbox/messages",
-	drafts: "me/mailFolders/drafts/messages",
-	sent: "me/mailFolders/sentItems/messages",
-	deleted: "me/mailFolders/deletedItems/messages",
-	junk: "me/mailFolders/junkemail/messages",
-	archive: "me/mailFolders/archive/messages",
-};
+export function getWellKnownFolders(mailbox: string): Record<string, string> {
+	return {
+		inbox: `users/${mailbox}/mailFolders/inbox/messages`,
+		drafts: `users/${mailbox}/mailFolders/drafts/messages`,
+		sent: `users/${mailbox}/mailFolders/sentItems/messages`,
+		deleted: `users/${mailbox}/mailFolders/deletedItems/messages`,
+		junk: `users/${mailbox}/mailFolders/junkemail/messages`,
+		archive: `users/${mailbox}/mailFolders/archive/messages`,
+	};
+}
 
 /**
  * Resolve a folder name to its endpoint path
  * @param accessToken - Access token
  * @param folderName - Folder name to resolve
+ * @param mailbox - Mailbox email address
  * @returns Resolved endpoint path
  */
 export async function resolveFolderPath(
 	accessToken: string,
 	folderName: string,
+	mailbox: string,
 ): Promise<string> {
+	const wellKnownFolders = getWellKnownFolders(mailbox);
+
 	// Default to inbox if no folder specified
 	if (!folderName) {
-		return WELL_KNOWN_FOLDERS.inbox;
+		return wellKnownFolders.inbox;
 	}
 
 	// Check if it's a well-known folder (case-insensitive)
 	const lowerFolderName = folderName.toLowerCase();
-	if (WELL_KNOWN_FOLDERS[lowerFolderName]) {
+	if (wellKnownFolders[lowerFolderName]) {
 		console.error(`Using well-known folder path for "${folderName}"`);
-		return WELL_KNOWN_FOLDERS[lowerFolderName];
+		return wellKnownFolders[lowerFolderName];
 	}
 
 	try {
 		// Try to find the folder by name
-		const folderId = await getFolderIdByName(accessToken, folderName);
+		const folderId = await getFolderIdByName(accessToken, folderName, mailbox);
 		if (folderId) {
-			const path = `me/mailFolders/${folderId}/messages`;
+			const path = `users/${mailbox}/mailFolders/${folderId}/messages`;
 			console.error(`Resolved folder "${folderName}" to path: ${path}`);
 			return path;
 		}
@@ -69,11 +75,11 @@ export async function resolveFolderPath(
 		console.error(
 			`Couldn't find folder "${folderName}", falling back to inbox`,
 		);
-		return WELL_KNOWN_FOLDERS.inbox;
+		return wellKnownFolders.inbox;
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		console.error(`Error resolving folder "${folderName}": ${errorMessage}`);
-		return WELL_KNOWN_FOLDERS.inbox;
+		return wellKnownFolders.inbox;
 	}
 }
 
@@ -81,11 +87,13 @@ export async function resolveFolderPath(
  * Get the ID of a mail folder by its name
  * @param accessToken - Access token
  * @param folderName - Name of the folder to find
+ * @param mailbox - Mailbox email address
  * @returns Folder ID or null if not found
  */
 export async function getFolderIdByName(
 	accessToken: string,
 	folderName: string,
+	mailbox: string,
 ): Promise<string | null> {
 	try {
 		// First try with exact match filter
@@ -93,7 +101,7 @@ export async function getFolderIdByName(
 		const response = (await callGraphAPI(
 			accessToken,
 			"GET",
-			"me/mailFolders",
+			`users/${mailbox}/mailFolders`,
 			null,
 			{ $filter: `displayName eq '${folderName}'` },
 		)) as FolderResponse;
@@ -112,7 +120,7 @@ export async function getFolderIdByName(
 		const allFoldersResponse = (await callGraphAPI(
 			accessToken,
 			"GET",
-			"me/mailFolders",
+			`users/${mailbox}/mailFolders`,
 			null,
 			{ $top: 100 },
 		)) as FolderResponse;
@@ -143,17 +151,19 @@ export async function getFolderIdByName(
 /**
  * Get all mail folders
  * @param accessToken - Access token
+ * @param mailbox - Mailbox email address
  * @returns Array of folder objects
  */
 export async function getAllFolders(
 	accessToken: string,
+	mailbox: string,
 ): Promise<MailFolder[]> {
 	try {
 		// Get top-level folders
 		const response = (await callGraphAPI(
 			accessToken,
 			"GET",
-			"me/mailFolders",
+			`users/${mailbox}/mailFolders`,
 			null,
 			{
 				$top: 100,
@@ -176,7 +186,7 @@ export async function getAllFolders(
 				const childResponse = (await callGraphAPI(
 					accessToken,
 					"GET",
-					`me/mailFolders/${folder.id}/childFolders`,
+					`users/${mailbox}/mailFolders/${folder.id}/childFolders`,
 					null,
 					{
 						$select:

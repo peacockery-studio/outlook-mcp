@@ -18,14 +18,47 @@ const calendarTools: CalendarTool[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				count: {
 					type: "number",
 					description: "Number of events to retrieve (default: 10, max: 50)",
 				},
 			},
-			required: [],
+			required: ["mailbox"],
+			additionalProperties: false,
 		},
 		handler: handleListEvents as unknown as (
+			args: unknown,
+		) => Promise<MCPResponse>,
+	},
+	{
+		name: "accept-event",
+		description: "Accepts a calendar event invitation",
+		inputSchema: {
+			type: "object",
+			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
+				eventId: {
+					type: "string",
+					description: "The ID of the event to accept",
+				},
+				comment: {
+					type: "string",
+					description: "Optional comment for accepting the event",
+				},
+			},
+			required: ["mailbox", "eventId"],
+			additionalProperties: false,
+		},
+		handler: handleAcceptEvent as unknown as (
 			args: unknown,
 		) => Promise<MCPResponse>,
 	},
@@ -35,6 +68,11 @@ const calendarTools: CalendarTool[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				eventId: {
 					type: "string",
 					description: "The ID of the event to decline",
@@ -44,7 +82,8 @@ const calendarTools: CalendarTool[] = [
 					description: "Optional comment for declining the event",
 				},
 			},
-			required: ["eventId"],
+			required: ["mailbox", "eventId"],
+			additionalProperties: false,
 		},
 		handler: handleDeclineEvent as unknown as (
 			args: unknown,
@@ -56,6 +95,11 @@ const calendarTools: CalendarTool[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				subject: {
 					type: "string",
 					description: "The subject of the event",
@@ -80,7 +124,8 @@ const calendarTools: CalendarTool[] = [
 					description: "Optional body content for the event",
 				},
 			},
-			required: ["subject", "start", "end"],
+			required: ["mailbox", "subject", "start", "end"],
+			additionalProperties: false,
 		},
 		handler: handleCreateEvent as unknown as (
 			args: unknown,
@@ -92,6 +137,11 @@ const calendarTools: CalendarTool[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				eventId: {
 					type: "string",
 					description: "The ID of the event to cancel",
@@ -101,7 +151,8 @@ const calendarTools: CalendarTool[] = [
 					description: "Optional comment for cancelling the event",
 				},
 			},
-			required: ["eventId"],
+			required: ["mailbox", "eventId"],
+			additionalProperties: false,
 		},
 		handler: handleCancelEvent as unknown as (
 			args: unknown,
@@ -113,12 +164,18 @@ const calendarTools: CalendarTool[] = [
 		inputSchema: {
 			type: "object",
 			properties: {
+				mailbox: {
+					type: "string",
+					description:
+						"Mailbox email address to operate on (e.g., 'chi@desertservices.net')",
+				},
 				eventId: {
 					type: "string",
 					description: "The ID of the event to delete",
 				},
 			},
-			required: ["eventId"],
+			required: ["mailbox", "eventId"],
+			additionalProperties: false,
 		},
 		handler: handleDeleteEvent as unknown as (
 			args: unknown,
@@ -130,8 +187,8 @@ export {
 	calendarTools,
 	handleListEvents,
 	handleDeclineEvent,
+	handleAcceptEvent,
 	handleCreateEvent,
 	handleCancelEvent,
 	handleDeleteEvent,
-	handleAcceptEvent,
 };

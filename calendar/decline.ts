@@ -6,7 +6,6 @@ import { ensureAuthenticated } from "../auth";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions";
 import { callGraphAPI } from "../utils/graph-api";
 import type { DeclineEventArgs, MCPResponse } from "./types";
@@ -19,6 +18,14 @@ import type { DeclineEventArgs, MCPResponse } from "./types";
 async function handleDeclineEvent(
 	args: DeclineEventArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const { eventId, comment } = args;
 
 	if (!eventId) {
@@ -29,6 +36,20 @@ async function handleDeclineEvent(
 					text: "Event ID is required to decline an event.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Declining events is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
@@ -36,21 +57,8 @@ async function handleDeclineEvent(
 		// Get access token
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Declining events is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
 		// Build API endpoint
-		const endpoint = `me/events/${eventId}/decline`;
+		const endpoint = `users/${mailbox}/events/${eventId}/decline`;
 
 		// Request body
 		const body = {
@@ -80,6 +88,7 @@ async function handleDeclineEvent(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -90,6 +99,7 @@ async function handleDeclineEvent(
 					text: `Error declining event: ${errorMessage}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }

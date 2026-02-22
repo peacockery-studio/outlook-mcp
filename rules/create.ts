@@ -7,7 +7,6 @@ import type { MCPResponse } from "../auth/tools.js";
 import {
 	canModifyMailbox,
 	formatAllowedMailboxes,
-	getCurrentUserEmail,
 } from "../config/mailbox-permissions.js";
 import { getFolderIdByName } from "../email/folder-utils.js";
 import { callGraphAPI } from "../utils/graph-api.js";
@@ -22,6 +21,7 @@ export interface CreateRuleArgs {
 	markAsRead?: boolean;
 	isEnabled?: boolean;
 	sequence?: number;
+	mailbox?: string;
 }
 
 export interface CreateRuleResult {
@@ -37,6 +37,14 @@ export interface CreateRuleResult {
 export async function handleCreateRule(
 	args: CreateRuleArgs,
 ): Promise<MCPResponse> {
+	const mailbox = args.mailbox;
+	if (!mailbox) {
+		return {
+			content: [{ type: "text", text: "Mailbox address is required." }],
+			isError: true,
+		};
+	}
+
 	const {
 		name,
 		fromAddresses,
@@ -56,6 +64,7 @@ export async function handleCreateRule(
 					text: "Sequence must be a positive number greater than zero.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -67,6 +76,7 @@ export async function handleCreateRule(
 					text: "Rule name is required.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -82,6 +92,7 @@ export async function handleCreateRule(
 					text: "At least one condition is required. Specify fromAddresses, containsSubject, or hasAttachments.",
 				},
 			],
+			isError: true,
 		};
 	}
 
@@ -93,26 +104,27 @@ export async function handleCreateRule(
 					text: "At least one action is required. Specify moveToFolder or markAsRead.",
 				},
 			],
+			isError: true,
+		};
+	}
+
+	// Check if the mailbox has permission to modify
+	if (!canModifyMailbox(mailbox)) {
+		return {
+			content: [
+				{
+					type: "text",
+					text: `Creating rules is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
+				},
+			],
+			isError: true,
 		};
 	}
 
 	try {
 		const accessToken = await ensureAuthenticated();
 
-		// Check if the current mailbox has permission to modify
-		const currentUserEmail = await getCurrentUserEmail(accessToken);
-		if (!canModifyMailbox(currentUserEmail)) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Creating rules is not allowed from this mailbox. Allowed: ${formatAllowedMailboxes()}`,
-					},
-				],
-			};
-		}
-
-		const result = await createInboxRule(accessToken, {
+		const result = await createInboxRule(accessToken, mailbox, {
 			name,
 			fromAddresses,
 			containsSubject,
@@ -147,6 +159,7 @@ export async function handleCreateRule(
 						text: "Authentication required. Please use the 'authenticate' tool first.",
 					},
 				],
+				isError: true,
 			};
 		}
 
@@ -157,6 +170,7 @@ export async function handleCreateRule(
 					text: `Error creating rule: ${(error as Error).message}`,
 				},
 			],
+			isError: true,
 		};
 	}
 }
@@ -166,7 +180,8 @@ export async function handleCreateRule(
  */
 async function createInboxRule(
 	accessToken: string,
-	ruleOptions: CreateRuleArgs,
+	mailbox: string,
+	ruleOptions: Omit<CreateRuleArgs, "mailbox">,
 ): Promise<CreateRuleResult> {
 	try {
 		const {
@@ -185,7 +200,7 @@ async function createInboxRule(
 			try {
 				ruleSequence = 100;
 
-				const existingRules = await getInboxRules(accessToken);
+				const existingRules = await getInboxRules(accessToken, mailbox);
 				if (existingRules?.length > 0) {
 					const highestSequence = Math.max(
 						...existingRules.map((r) => r.sequence || 0),
@@ -246,7 +261,11 @@ async function createInboxRule(
 
 		if (moveToFolder) {
 			try {
-				const folderId = await getFolderIdByName(accessToken, moveToFolder);
+				const folderId = await getFolderIdByName(
+					accessToken,
+					moveToFolder,
+					mailbox,
+				);
 				if (!folderId) {
 					return {
 						success: false,
@@ -273,7 +292,7 @@ async function createInboxRule(
 		const response = await callGraphAPI<{ id: string; displayName: string }>(
 			accessToken,
 			"POST",
-			"me/mailFolders/inbox/messageRules",
+			`users/${mailbox}/mailFolders/inbox/messageRules`,
 			rule,
 		);
 
